@@ -643,7 +643,14 @@
 
             if (!mobilenetModel) {
                 if (detalhe) detalhe.innerText = "Carregando modelo de reconhecimento (1ª vez pode demorar)...";
-                mobilenetModel = await mobilenet.load({ version: 2, alpha: 1.0 });
+                // IMPORTANTE: essa configuração precisa ser IDÊNTICA à usada no script que
+                // gerou o embeddings.json (gerar_embeddings.js), senão os vetores da foto ao
+                // vivo e os vetores salvos vêm de "espaços" diferentes e a comparação não tem
+                // significado nenhum — mesmo que o código rode sem erro.
+                // MobileNetV1 alpha=0.5 é o que bate com o tamanho de vetor (512) encontrado
+                // no embeddings.json enviado. Se você trocar o modelo usado no script de
+                // geração, troque aqui também (e regenere o embeddings.json).
+                mobilenetModel = await mobilenet.load({ version: 1, alpha: 0.50 });
             }
 
             if (!baseEmbeddings) {
@@ -653,6 +660,34 @@
                     throw new Error("Base de reconhecimento (embeddings.json) não encontrada. Gere com o script antes de usar.");
                 }
                 baseEmbeddings = await resp.json();
+
+                // TRAVA DE SEGURANÇA: confere se o tamanho dos vetores da base bate com o
+                // que o modelo carregado acima realmente produz. Sem essa checagem, um
+                // descompasso de modelo/alpha entre este app e o gerar_embeddings.js quebra
+                // a comparação de forma silenciosa (os scores viram NaN e o reconhecimento
+                // passa a devolver resultados praticamente aleatórios, sem nenhum erro visível).
+                const codigosBase = Object.keys(baseEmbeddings);
+                if (codigosBase.length > 0) {
+                    const tamanhoBase = baseEmbeddings[codigosBase[0]].length;
+
+                    // Roda uma inferência "de mentira" (imagem em branco) só pra descobrir
+                    // o tamanho do vetor que ESTE modelo carregado realmente produz.
+                    const tensorProbe = tf.zeros([224, 224, 3]);
+                    const embeddingProbe = mobilenetModel.infer(tensorProbe, true);
+                    const tamanhoModelo = embeddingProbe.size;
+                    tensorProbe.dispose();
+                    embeddingProbe.dispose();
+
+                    if (tamanhoBase !== tamanhoModelo) {
+                        baseEmbeddings = null; // não deixa usar uma base incompatível
+                        throw new Error(
+                            `A base de reconhecimento (embeddings.json) tem vetores de tamanho ${tamanhoBase}, ` +
+                            `mas o modelo carregado aqui gera vetores de tamanho ${tamanhoModelo}. ` +
+                            `O gerar_embeddings.js e este app precisam usar exatamente a mesma configuração ` +
+                            `de modelo (version/alpha) — confira e regenere o embeddings.json.`
+                        );
+                    }
+                }
             }
         }
 
@@ -769,13 +804,21 @@
             document.getElementById('cam-analisando-detalhe').innerText = "Comparando com a base de produtos...";
 
             const codigos = Object.keys(baseEmbeddings);
-            const pontuacoes = codigos.map(codigo => {
+            const pontuacoesPorCodigo = new Map(); // dedupa por código já sem espaço, mantendo o melhor score
+            codigos.forEach(codigo => {
                 const scorePorRecorte = vetoresFoto.map(v => calcularSimilaridadeCosseno(v, baseEmbeddings[codigo]));
-                return {
-                    codigo: codigo,
-                    score: Math.max(...scorePorRecorte)
-                };
+                const score = Math.max(...scorePorRecorte);
+                // Alguns códigos no embeddings.json vêm com espaço sobrando no fim
+                // (ex.: "0101050005000 "), e um deles até aparece duplicado (com e sem
+                // espaço) apontando pro mesmo produto. Sem o trim + dedupe, esse produto
+                // some dos resultados (não bate com PRODUTOS_PLANILHA) ou aparece 2x.
+                const codigoLimpo = codigo.trim();
+                const anterior = pontuacoesPorCodigo.get(codigoLimpo);
+                if (!anterior || score > anterior) {
+                    pontuacoesPorCodigo.set(codigoLimpo, score);
+                }
             });
+            const pontuacoes = Array.from(pontuacoesPorCodigo, ([codigo, score]) => ({ codigo, score }));
 
             pontuacoes.sort((a, b) => b.score - a.score);
 
