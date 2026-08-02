@@ -650,6 +650,7 @@
                 const bruto = await resp.json();
                 // Alguns códigos no embeddings.json têm espaço sobrando (bug do gerar_embeddings.js
                 // ao ler nomes de arquivo); normaliza aqui pra não perder o match com PRODUTOS_PLANILHA.
+                // Formato esperado por item: { embedding: [...512 números], cor: [r,g,b] }
                 baseEmbeddings = {};
                 Object.keys(bruto).forEach(codigo => {
                     baseEmbeddings[codigo.trim()] = bruto[codigo];
@@ -720,6 +721,49 @@
             return dot / (Math.sqrt(normA) * Math.sqrt(normB));
         }
 
+        // Mesma lógica do gerar_embeddings.js (calcularCorMediaIgnorandoFundo): calcula a cor
+        // média real do item na foto, ignorando pixels de fundo claro/pouco saturado.
+        function calcularCorMediaDaFoto(canvas) {
+            const ctx = canvas.getContext('2d');
+            const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let rSum = 0, gSum = 0, bSum = 0, count = 0;
+
+            for (let i = 0; i < width * height; i++) {
+                const idx = i * 4; // RGBA
+                const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const luminosidade = (r + g + b) / 3;
+                const saturacao = max === 0 ? 0 : (max - min) / max;
+
+                const ehFundoClaro = luminosidade > 210 && saturacao < 0.12;
+                if (ehFundoClaro) continue;
+
+                rSum += r; gSum += g; bSum += b; count++;
+            }
+
+            if (count === 0) return [200, 200, 200];
+            return [Math.round(rSum / count), Math.round(gSum / count), Math.round(bSum / count)];
+        }
+
+        // Converte a distância euclidiana entre duas cores RGB numa similaridade de 0 a 1
+        function calcularSimilaridadeCor(corA, corB) {
+            const dist = Math.sqrt(
+                (corA[0] - corB[0]) ** 2 +
+                (corA[1] - corB[1]) ** 2 +
+                (corA[2] - corB[2]) ** 2
+            );
+            const DIST_MAXIMA = Math.sqrt(3 * 255 ** 2); // ~441.7, distância máxima possível em RGB
+            return 1 - (dist / DIST_MAXIMA);
+        }
+
+        // Peso de cada critério no score final: forma/silhueta (CLIP) importa mais,
+        // mas a cor decide o empate entre variantes da mesma peça (ex: mesma colher,
+        // cabo preto vs cabo capuccino), que é onde o CLIP sozinho vinha errando.
+        const PESO_FORMA = 0.6;
+        const PESO_COR = 0.4;
+
         async function reconhecerImagem(canvas) {
             await garantirBaseCarregada();
 
@@ -731,10 +775,19 @@
             const output = await clipExtractor(dataUrlFoto);
             const vetorFoto = Array.from(output.data);
 
-            const pontuacoes = Object.keys(baseEmbeddings).map(codigo => ({
-                codigo: codigo,
-                score: calcularSimilaridadeCosseno(vetorFoto, baseEmbeddings[codigo])
-            }));
+            // Cor real do item na foto (ignorando fundo), pra desempatar entre variantes
+            // de cor da mesma peça/linha que o CLIP sozinho não diferencia bem
+            const corFoto = calcularCorMediaDaFoto(canvas);
+
+            const pontuacoes = Object.keys(baseEmbeddings).map(codigo => {
+                const produtoBase = baseEmbeddings[codigo];
+                const scoreForma = calcularSimilaridadeCosseno(vetorFoto, produtoBase.embedding);
+                const scoreCor = calcularSimilaridadeCor(corFoto, produtoBase.cor);
+                return {
+                    codigo: codigo,
+                    score: (PESO_FORMA * scoreForma) + (PESO_COR * scoreCor)
+                };
+            });
 
             pontuacoes.sort((a, b) => b.score - a.score);
 
