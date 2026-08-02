@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel CD - Di Solle</title>
+
+    <link rel="manifest" href="manifest-cd.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col m-0 p-0">
+
+    <!-- NAVBAR SUPERIOR -->
+    <nav class="bg-white border-b border-gray-200 p-4 shadow-sm flex justify-between items-center">
+        <div id="container-logo" class="h-10 w-44 flex items-center justify-start text-gray-800 font-bold text-sm tracking-wide">
+            <span class="animate-pulse text-gray-400">Carregando Logo...</span>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button id="btn-voltar-menu" onclick="voltarMenu()" class="hidden text-xs font-mono bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-md border border-slate-700 text-slate-300 font-bold transition flex items-center space-x-1 cursor-pointer">
+                <span>← Voltar ao Menu CD</span>
+            </button>
+
+            <button id="btn-ver-registros" onclick="abrirRegistros()" class="hidden text-xs font-mono bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-md border border-slate-700 text-sky-400 font-bold transition flex items-center space-x-1 cursor-pointer">
+                <span>📋 Ver Registros</span>
+            </button>
+
+            <div id="badge-tela-ativa" class="text-xs font-mono bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700 text-emerald-400 font-bold">
+                Central de Distribuição
+            </div>
+        </div>
+    </nav>
+
+    <!-- ===================== TELA 0: SELEÇÃO DE MODO ===================== -->
+    <main id="tela-selecao" class="flex-1 flex items-center justify-center p-6">
+        <div class="max-w-3xl w-full">
+            <h1 class="text-center text-2xl font-bold text-slate-200 mb-2 font-mono">Painel do CD</h1>
+            <p class="text-center text-slate-500 text-sm font-mono mb-10">Selecione o que você deseja fazer</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <button onclick="abrirTelaPedidos()" class="group bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 hover:border-emerald-500 rounded-2xl p-8 text-left transition shadow-lg active:scale-95 cursor-pointer">
+                    <div class="text-5xl mb-4">📦</div>
+                    <h2 class="text-lg font-bold text-slate-100 mb-2">Pedidos Funcionário</h2>
+                    <p class="text-xs text-slate-400 font-mono leading-relaxed">
+                        Bipar código do produto para registrar <span class="text-amber-400 font-bold">SAÍDA</span> de estoque,
+                        igual ao painel de Expedição.
+                    </p>
+                    <div class="mt-4 text-xs font-mono text-emerald-400 font-bold group-hover:translate-x-1 transition inline-block">
+                        Abrir →
+                    </div>
+                </button>
+
+                <button onclick="abrirTelaDevolucao()" class="group bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 hover:border-sky-500 rounded-2xl p-8 text-left transition shadow-lg active:scale-95 cursor-pointer">
+                    <div class="text-5xl mb-4">↩️</div>
+                    <h2 class="text-lg font-bold text-slate-100 mb-2">Devolver para o 48</h2>
+                    <p class="text-xs text-slate-400 font-mono leading-relaxed">
+                        Bipar código do produto para registrar <span class="text-sky-400 font-bold">ENTRADA</span> no estoque
+                        (devolução ao almoxarifado 48).
+                    </p>
+                    <div class="mt-4 text-xs font-mono text-sky-400 font-bold group-hover:translate-x-1 transition inline-block">
+                        Abrir →
+                    </div>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ===================== TELA 1: PEDIDOS FUNCIONÁRIO (SAÍDA - igual pc.html) ===================== -->
+    <main id="tela-pedidos" class="hidden flex-1 p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- PAINEL ESQUERDO: BIPAGEM -->
+        <section class="lg:col-span-1 bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-col justify-between shadow-md">
+            <div>
+                <h2 class="text-lg font-bold mb-4 text-slate-200 border-b border-slate-700 pb-2">Saída de Materiais - CD</h2>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Qtd de Caixas / Embalagens Bipadas</label>
+                    <input type="number" id="campo-caixas" min="1" placeholder="Ex: 1" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-2xl font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Observação (opcional)</label>
+                    <input type="text" id="campo-observacao" placeholder="Ex: avaria, troca, ajuste..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm font-mono text-slate-200 focus:outline-none focus:border-sky-500">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código de Barras (Máx. 13 Dígitos)</label>
+                    <input type="text" id="campo-codigo" maxlength="13" placeholder="Bipe o código..." autofocus autocomplete="off" class="w-full bg-slate-950 border-2 border-emerald-500 rounded-lg p-4 text-xl font-mono text-emerald-400 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400">
+                    <p class="text-[10px] text-slate-500 font-mono mt-1">O cursor retorna para cá automaticamente após cada bipe.</p>
+                </div>
+
+                <button type="button" onclick="abrirLancamentoManual()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-lg transition text-sm font-mono cursor-pointer shadow-lg active:scale-95 flex items-center justify-center space-x-2 mb-6">
+                    <span>✍️ Lançamento Manual</span>
+                </button>
+            </div>
+
+            <div id="status-box" class="bg-slate-950 p-4 rounded-lg border border-slate-800 text-center text-sm font-mono text-slate-400">
+                Aguardando leitura de código...
+            </div>
+        </section>
+
+        <!-- PAINEL DIREITO: TABELA DE HISTÓRICO -->
+        <section class="lg:col-span-2 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-md flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                <h2 class="text-lg font-bold text-slate-200">Últimas Saídas Registradas - CD</h2>
+                <div class="flex items-center space-x-2">
+                    <span id="contador-baixas" class="bg-slate-950 text-emerald-400 border border-slate-700 text-xs font-mono px-2 py-1 rounded">
+                        Total Operações: 0
+                    </span>
+                    <span id="contador-itens" class="bg-slate-950 text-sky-400 border border-slate-700 text-xs font-mono px-2 py-1 rounded">
+                        Total Itens: 0
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-x-auto">
+                <table class="w-full text-left text-sm font-mono">
+                    <thead>
+                        <tr class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700">
+                            <th class="p-3 w-20">Hora</th>
+                            <th class="p-3 w-36">Código</th>
+                            <th class="p-3">Descrição</th>
+                            <th class="p-3 text-center w-20">Caixas</th>
+                            <th class="p-3 text-right text-emerald-400 w-28">Total Itens</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-historico" class="divide-y divide-slate-700/50"></tbody>
+                </table>
+                <div id="historico-vazio" class="text-center py-12 text-slate-500 text-xs uppercase">
+                    Nenhuma saída realizada nesta sessão.
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===================== TELA 2: DEVOLVER PARA O 48 (ENTRADA) ===================== -->
+    <main id="tela-devolucao" class="hidden flex-1 p-6 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- PAINEL ESQUERDO: BIPAGEM DE ENTRADA -->
+        <section class="lg:col-span-1 bg-slate-800 p-6 rounded-xl border border-sky-800 flex flex-col justify-between shadow-md">
+            <div>
+                <h2 class="text-lg font-bold mb-2 text-slate-200 border-b border-slate-700 pb-2">Devolver para o 48</h2>
+                <p class="text-[11px] text-slate-500 font-mono mb-4 leading-relaxed">
+                    Itens <span class="text-sky-400 font-bold">a granel</span> (embalagem "00") entram direto no estoque pela quantidade digitada.
+                    Itens com outra embalagem seguem as regras de desmembramento (aba "regras"), igual à Expedição, só que dando <span class="text-sky-400 font-bold">entrada</span>.
+                </p>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Quantidade (Caixas ou Unidades a Granel)</label>
+                    <input type="number" id="dev-campo-quantidade" min="1" placeholder="Ex: 1" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-2xl font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Observação (opcional)</label>
+                    <input type="text" id="dev-campo-observacao" placeholder="Ex: sobra, troca, ajuste..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm font-mono text-slate-200 focus:outline-none focus:border-sky-500">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código de Barras (Máx. 13 Dígitos)</label>
+                    <input type="text" id="dev-campo-codigo" maxlength="13" placeholder="Bipe o código..." autocomplete="off" class="w-full bg-slate-950 border-2 border-sky-500 rounded-lg p-4 text-xl font-mono text-sky-400 font-bold focus:outline-none focus:ring-2 focus:ring-sky-400">
+                    <p class="text-[10px] text-slate-500 font-mono mt-1">O cursor retorna para cá automaticamente após cada bipe.</p>
+                </div>
+            </div>
+
+            <div id="dev-status-box" class="bg-slate-950 p-4 rounded-lg border border-slate-800 text-center text-sm font-mono text-slate-400">
+                Aguardando leitura de código...
+            </div>
+        </section>
+
+        <!-- PAINEL DIREITO: HISTÓRICO DE ENTRADAS -->
+        <section class="lg:col-span-2 bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-md flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                <h2 class="text-lg font-bold text-slate-200">Últimas Devoluções Registradas</h2>
+                <div class="flex items-center space-x-2">
+                    <span id="dev-contador-baixas" class="bg-slate-950 text-sky-400 border border-slate-700 text-xs font-mono px-2 py-1 rounded">
+                        Total Operações: 0
+                    </span>
+                    <span id="dev-contador-itens" class="bg-slate-950 text-emerald-400 border border-slate-700 text-xs font-mono px-2 py-1 rounded">
+                        Total Itens: 0
+                    </span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-x-auto">
+                <table class="w-full text-left text-sm font-mono">
+                    <thead>
+                        <tr class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700">
+                            <th class="p-3 w-20">Hora</th>
+                            <th class="p-3 w-36">Código</th>
+                            <th class="p-3">Descrição</th>
+                            <th class="p-3 text-center w-24">Tipo</th>
+                            <th class="p-3 text-right text-sky-400 w-28">Total Itens</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dev-tabela-historico" class="divide-y divide-slate-700/50"></tbody>
+                </table>
+                <div id="dev-historico-vazio" class="text-center py-12 text-slate-500 text-xs uppercase">
+                    Nenhuma devolução realizada nesta sessão.
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL DE ERRO / AVISO NO MEIO DA TELA -->
+    <div id="modal-erro" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-red-500 rounded-2xl p-6 max-w-md w-full shadow-2xl text-center">
+            <div class="text-5xl mb-3">⚠️</div>
+            <h3 class="text-xl font-bold text-red-500 mb-2 font-mono">ITEM NÃO ENCONTRADO</h3>
+            <p id="modal-erro-msg" class="text-slate-200 text-sm font-mono mb-6 leading-relaxed">
+                O código bipado não existe ou não está cadastrado.
+            </p>
+            <button id="btn-fechar-erro" onclick="fecharModalErro()" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-xl transition text-sm font-mono cursor-pointer shadow-lg active:scale-95">
+                OK / FECHAR AVISO (ENTER)
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: VER / EDITAR REGISTROS (Pedidos Funcionário) -->
+    <div id="modal-registros" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-5xl max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-4 border-b border-slate-700">
+                <h3 class="text-lg font-bold text-slate-200">Registros de Saída - CD</h3>
+                <button onclick="fecharRegistros()" class="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+            </div>
+            <div class="flex items-center flex-wrap gap-4 px-4 py-3 border-b border-slate-800 bg-slate-950/40">
+                <label class="flex items-center space-x-2 text-xs font-mono text-slate-300 cursor-pointer">
+                    <input type="checkbox" id="filtro-somente-hoje" checked onchange="abrirRegistros()" class="accent-emerald-500">
+                    <span>Somente hoje</span>
+                </label>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+                <table class="w-full text-left text-xs font-mono">
+                    <thead>
+                        <tr class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700 sticky top-0">
+                            <th class="p-2">Hora</th>
+                            <th class="p-2">Código</th>
+                            <th class="p-2">Descrição</th>
+                            <th class="p-2 text-center">Caixas</th>
+                            <th class="p-2 text-right">Total</th>
+                            <th class="p-2">Observação</th>
+                            <th class="p-2 text-center">Editar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-registros" class="divide-y divide-slate-800"></tbody>
+                </table>
+                <div id="registros-carregando" class="text-center py-10 text-slate-500 text-xs uppercase">Carregando...</div>
+                <div id="registros-vazio" class="hidden text-center py-10 text-slate-500 text-xs uppercase">Nenhum registro encontrado.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: LANÇAMENTO MANUAL (ignora regras de caixas/embalagem) -->
+    <div id="modal-manual" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-indigo-500 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-indigo-400 font-mono">✍️ Lançamento Manual</h3>
+                <button onclick="fecharLancamentoManual()" class="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+            </div>
+            <p class="text-[11px] text-slate-500 font-mono mb-4 leading-relaxed">
+                Este modo ignora caixas/embalagens e regras de desmembramento. A quantidade informada é baixada diretamente do estoque do código digitado.
+            </p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto</label>
+                    <input type="text" id="manual-codigo" placeholder="Digite o código..." autocomplete="off" class="w-full bg-slate-950 border-2 border-indigo-500 rounded-lg p-3 text-lg font-mono text-indigo-300 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Quantidade Total de Unidades</label>
+                    <input type="number" id="manual-quantidade" min="1" placeholder="Ex: 25" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-lg font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Observação (opcional)</label>
+                    <input type="text" id="manual-observacao" placeholder="Ex: ajuste, conferência..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm font-mono text-slate-200 focus:outline-none focus:border-sky-500">
+                </div>
+                <div id="manual-status" class="text-xs font-mono text-slate-400 hidden"></div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button onclick="fecharLancamentoManual()" class="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300">Cancelar</button>
+                    <button onclick="salvarLancamentoManual()" class="px-4 py-2 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white">Registrar Lançamento</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDITAR REGISTRO INDIVIDUAL -->
+    <div id="modal-editar" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-md shadow-2xl">
+            <div class="flex justify-between items-center p-4 border-b border-slate-700">
+                <h3 class="text-base font-bold text-slate-200">Corrigir Lançamento</h3>
+                <button onclick="fecharEdicao()" class="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto</label>
+                    <input type="text" id="edit-codigo" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm font-mono text-emerald-400 font-bold focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Qtd de Caixas</label>
+                    <input type="number" id="edit-caixas" min="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm font-mono text-amber-400 font-bold focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Observação</label>
+                    <input type="text" id="edit-observacao" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm font-mono text-slate-200 focus:outline-none focus:border-sky-500">
+                </div>
+                <div id="edit-status" class="text-xs font-mono text-slate-400 hidden"></div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button onclick="fecharEdicao()" class="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300">Cancelar</button>
+                    <button onclick="salvarEdicao()" class="px-4 py-2 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white">Salvar e Atualizar Planilha</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbw7cLIywvPPUf2GHo2_FZDumJXgRoF4eBPK9b0alvvZOESrH6LWK1RzdI8_0BRkevR94A/exec";
+
+        // A "mesa" do CD é sempre fixa como "CD" (não editável, diferente do pc.html)
+        const MESA_ATUAL = "CD";
+
+        // ===================== NAVEGAÇÃO ENTRE TELAS =====================
+        const telaSelecao = document.getElementById('tela-selecao');
+        const telaPedidos = document.getElementById('tela-pedidos');
+        const telaDevolucao = document.getElementById('tela-devolucao');
+        const btnVoltarMenu = document.getElementById('btn-voltar-menu');
+        const btnVerRegistros = document.getElementById('btn-ver-registros');
+        const badgeTelaAtiva = document.getElementById('badge-tela-ativa');
+
+        function esconderTodasTelas() {
+            telaSelecao.classList.add('hidden');
+            telaPedidos.classList.add('hidden');
+            telaDevolucao.classList.add('hidden');
+            btnVoltarMenu.classList.add('hidden');
+            btnVerRegistros.classList.add('hidden');
+        }
+
+        let dadosPedidosCarregados = false;
+        let dadosDevolucaoCarregados = false;
+
+        function abrirTelaPedidos() {
+            esconderTodasTelas();
+            telaPedidos.classList.remove('hidden');
+            telaPedidos.classList.add('grid');
+            btnVoltarMenu.classList.remove('hidden');
+            btnVerRegistros.classList.remove('hidden');
+            badgeTelaAtiva.innerText = "CD · Pedidos Funcionário (Saída)";
+            badgeTelaAtiva.className = "text-xs font-mono bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700 text-amber-400 font-bold";
+
+            if (!dadosPedidosCarregados) {
+                dadosPedidosCarregados = true;
+                carregarHistoricoDoDia();
+            }
+            setTimeout(() => campoCodigo.focus(), 50);
+        }
+
+        function abrirTelaDevolucao() {
+            esconderTodasTelas();
+            telaDevolucao.classList.remove('hidden');
+            telaDevolucao.classList.add('grid');
+            btnVoltarMenu.classList.remove('hidden');
+            badgeTelaAtiva.innerText = "CD · Devolver para o 48 (Entrada)";
+            badgeTelaAtiva.className = "text-xs font-mono bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700 text-sky-400 font-bold";
+
+            if (!dadosDevolucaoCarregados) {
+                dadosDevolucaoCarregados = true;
+                carregarHistoricoDevolucaoDoDia();
+            }
+            setTimeout(() => devCampoCodigo.focus(), 50);
+        }
+
+        function voltarMenu() {
+            esconderTodasTelas();
+            telaSelecao.classList.remove('hidden');
+            badgeTelaAtiva.innerText = "Central de Distribuição";
+            badgeTelaAtiva.className = "text-xs font-mono bg-slate-800 px-3 py-1.5 rounded-md border border-slate-700 text-emerald-400 font-bold";
+        }
+
+        // ===================== LOGO =====================
+        async function carregarLogo() {
+            try {
+                const response = await fetch(`${API_URL}?action=buscarDadosExpedicao&nocache=${Math.random()}`);
+                const dados = await response.json();
+                if (dados.logoId) {
+                    document.getElementById('container-logo').innerHTML = `<img src="https://drive.google.com/thumbnail?id=${dados.logoId}&sz=w400" class="h-full object-contain" onerror="this.parentNode.innerText='DI SOLLE';">`;
+                } else {
+                    document.getElementById('container-logo').innerText = "DI SOLLE";
+                }
+            } catch (e) {
+                document.getElementById('container-logo').innerText = "DI SOLLE";
+            }
+        }
+
+        function tocarBipe(sucesso) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                if (sucesso) {
+                    osc.frequency.setValueAtTime(1000, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.12);
+                } else {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.3);
+                }
+            } catch (e) {}
+        }
+
+        // FUNÇÕES DO MODAL DE ERRO NO MEIO DA TELA (compartilhado pelas duas telas)
+        let focoAposErro = null;
+
+        function abrirModalErro(mensagem, campoParaFoco) {
+            focoAposErro = campoParaFoco || null;
+            const modal = document.getElementById('modal-erro');
+            const msgBox = document.getElementById('modal-erro-msg');
+            msgBox.innerText = mensagem;
+            modal.classList.remove('hidden');
+            tocarBipe(false);
+
+            setTimeout(() => {
+                const btn = document.getElementById('btn-fechar-erro');
+                if (btn) btn.focus();
+            }, 50);
+        }
+
+        function fecharModalErro() {
+            const modal = document.getElementById('modal-erro');
+            modal.classList.add('hidden');
+            setTimeout(() => {
+                if (focoAposErro) focoAposErro.focus();
+            }, 50);
+        }
+
+        document.addEventListener('keydown', function(e) {
+            const modal = document.getElementById('modal-erro');
+            if (modal && !modal.classList.contains('hidden')) {
+                if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+                    e.preventDefault();
+                    fecharModalErro();
+                }
+            }
+        });
+
+        // ===================== TELA 1: PEDIDOS FUNCIONÁRIO (SAÍDA) =====================
+        const campoCodigo = document.getElementById('campo-codigo');
+        const campoCaixas = document.getElementById('campo-caixas');
+        const campoObservacao = document.getElementById('campo-observacao');
+        const statusBox = document.getElementById('status-box');
+        const tabelaHistorico = document.getElementById('tabela-historico');
+        const historicoVazio = document.getElementById('historico-vazio');
+        const contadorBaixas = document.getElementById('contador-baixas');
+        const contadorItens = document.getElementById('contador-itens');
+
+        let totalBaixasSessao = 0;
+        let totalItensSessao = 0;
+
+        async function carregarHistoricoDoDia() {
+            tabelaHistorico.innerHTML = '';
+            totalBaixasSessao = 0;
+            totalItensSessao = 0;
+            historicoVazio.classList.add('hidden');
+            statusBox.innerText = "Carregando lançamentos de hoje...";
+
+            try {
+                const url = `${API_URL}?action=buscarRegistrosSaida&mesa=${encodeURIComponent(MESA_ATUAL)}&somenteHoje=true&limite=200&nocache=${Math.random()}`;
+                const response = await fetch(url);
+                const dados = await response.json();
+                const registros = dados.registros || [];
+
+                if (registros.length === 0) {
+                    historicoVazio.classList.remove('hidden');
+                } else {
+                    registros.forEach(reg => {
+                        totalBaixasSessao++;
+                        totalItensSessao += reg.totalItens;
+
+                        const hora = reg.dataHora ? new Date(reg.dataHora).toLocaleTimeString() : "";
+                        const tr = document.createElement('tr');
+                        tr.className = "text-xs border-b border-slate-800 hover:bg-slate-800/50";
+                        tr.innerHTML = `
+                            <td class="p-3 text-slate-500 whitespace-nowrap">${hora}</td>
+                            <td class="p-3 font-mono font-bold text-slate-300 whitespace-nowrap">${reg.codigo}</td>
+                            <td class="p-3 text-slate-200 uppercase whitespace-normal break-words font-semibold leading-snug">${reg.descricao}</td>
+                            <td class="p-3 text-center text-amber-400 font-bold whitespace-nowrap">${reg.caixas} Cx</td>
+                            <td class="p-3 text-right text-emerald-400 font-bold whitespace-nowrap">-${reg.totalItens} un</td>
+                        `;
+                        tabelaHistorico.appendChild(tr);
+                    });
+                }
+
+                contadorBaixas.innerText = `Total Operações: ${totalBaixasSessao}`;
+                contadorItens.innerText = `Total Itens: ${totalItensSessao}`;
+                statusBox.innerText = "Aguardando leitura de código...";
+            } catch (err) {
+                statusBox.innerHTML = `<span class="text-red-400 font-bold">❌ Erro ao carregar histórico do dia.</span>`;
+            }
+        }
+
+        campoCodigo.addEventListener('keydown', async function(e) {
+            if (e.key === 'Enter') {
+                const codigoBipado = campoCodigo.value.trim();
+                const caixasBipadas = parseInt(campoCaixas.value) || 1;
+                const observacao = campoObservacao.value.trim();
+
+                if (!codigoBipado) return;
+
+                campoCodigo.disabled = true;
+                statusBox.innerText = "Registrando operação...";
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: "POST",
+                        body: JSON.stringify({
+                            action: "registrarSaidaExakta",
+                            codigoBipado: codigoBipado,
+                            caixas: caixasBipadas,
+                            mesa: MESA_ATUAL,
+                            observacao: observacao
+                        })
+                    });
+
+                    const resultado = await response.json();
+
+                    if (resultado.success) {
+                        tocarBipe(true);
+                        const msgEstoque = resultado.descontouEstoque
+                            ? `Estoque Atualizado (${resultado.itensAfetados || 1} item(ns))`
+                            : "Registrado em Saídas (Sem alteração no estoque)";
+
+                        statusBox.innerHTML = `<span class="text-emerald-400 font-bold">✅ Baixa Processada!</span><br><span class="text-xs text-slate-300 leading-tight block mt-1">${resultado.descricao}<br>(${msgEstoque})</span>`;
+
+                        historicoVazio.classList.add('hidden');
+                        totalBaixasSessao++;
+                        totalItensSessao += resultado.totalItens;
+                        contadorBaixas.innerText = `Total Operações: ${totalBaixasSessao}`;
+                        contadorItens.innerText = `Total Itens: ${totalItensSessao}`;
+
+                        const tr = document.createElement('tr');
+                        tr.className = "text-xs border-b border-slate-800 hover:bg-slate-800/50";
+                        tr.innerHTML = `
+                            <td class="p-3 text-slate-500 whitespace-nowrap">${new Date().toLocaleTimeString()}</td>
+                            <td class="p-3 font-mono font-bold text-slate-300 whitespace-nowrap">${codigoBipado}</td>
+                            <td class="p-3 text-slate-200 uppercase whitespace-normal break-words font-semibold leading-snug">${resultado.descricao}</td>
+                            <td class="p-3 text-center text-amber-400 font-bold whitespace-nowrap">${caixasBipadas} Cx</td>
+                            <td class="p-3 text-right text-emerald-400 font-bold whitespace-nowrap">-${resultado.totalItens} un</td>
+                        `;
+                        tabelaHistorico.insertBefore(tr, tabelaHistorico.firstChild);
+                    } else {
+                        throw new Error(resultado.error || "O item lido não existe na aba Produto!");
+                    }
+                } catch (err) {
+                    var msgErro = err.message || "Item não existe ou não cadastrado.";
+                    statusBox.innerHTML = `<span class="text-red-400 font-bold">❌ ${msgErro}</span>`;
+                    abrirModalErro(msgErro, campoCodigo);
+                } finally {
+                    campoCodigo.disabled = false;
+                    campoCodigo.value = '';
+                    campoCaixas.value = '';
+                    campoObservacao.value = '';
+
+                    const modalErro = document.getElementById('modal-erro');
+                    if (!modalErro || modalErro.classList.contains('hidden')) {
+                        campoCodigo.focus();
+                    }
+                }
+            }
+        });
+
+        // ===================== TELA 2: DEVOLVER PARA O 48 (ENTRADA) =====================
+        const devCampoCodigo = document.getElementById('dev-campo-codigo');
+        const devCampoQuantidade = document.getElementById('dev-campo-quantidade');
+        const devCampoObservacao = document.getElementById('dev-campo-observacao');
+        const devStatusBox = document.getElementById('dev-status-box');
+        const devTabelaHistorico = document.getElementById('dev-tabela-historico');
+        const devHistoricoVazio = document.getElementById('dev-historico-vazio');
+        const devContadorBaixas = document.getElementById('dev-contador-baixas');
+        const devContadorItens = document.getElementById('dev-contador-itens');
+
+        let devTotalOperacoesSessao = 0;
+        let devTotalItensSessao = 0;
+
+        function devRotuloTipo(tipo) {
+            if (tipo === "granel" || tipo === "A Granel") {
+                return '<span class="text-sky-400">A Granel</span>';
+            }
+            return '<span class="text-indigo-400">Embalagem</span>';
+        }
+
+        async function carregarHistoricoDevolucaoDoDia() {
+            devTabelaHistorico.innerHTML = '';
+            devTotalOperacoesSessao = 0;
+            devTotalItensSessao = 0;
+            devHistoricoVazio.classList.add('hidden');
+            devStatusBox.innerText = "Carregando lançamentos de hoje...";
+
+            try {
+                const url = `${API_URL}?action=buscarRegistrosEntradaCD&somenteHoje=true&limite=200&nocache=${Math.random()}`;
+                const response = await fetch(url);
+                const dados = await response.json();
+                const registros = dados.registros || [];
+
+                if (registros.length === 0) {
+                    devHistoricoVazio.classList.remove('hidden');
+                } else {
+                    registros.forEach(reg => {
+                        devTotalOperacoesSessao++;
+                        devTotalItensSessao += reg.totalItens;
+
+                        const hora = reg.dataHora ? new Date(reg.dataHora).toLocaleTimeString() : "";
+                        const tr = document.createElement('tr');
+                        tr.className = "text-xs border-b border-slate-800 hover:bg-slate-800/50";
+                        tr.innerHTML = `
+                            <td class="p-3 text-slate-500 whitespace-nowrap">${hora}</td>
+                            <td class="p-3 font-mono font-bold text-slate-300 whitespace-nowrap">${reg.codigo}</td>
+                            <td class="p-3 text-slate-200 uppercase whitespace-normal break-words font-semibold leading-snug">${reg.descricao}</td>
+                            <td class="p-3 text-center font-bold whitespace-nowrap">${devRotuloTipo(reg.tipo)}</td>
+                            <td class="p-3 text-right text-sky-400 font-bold whitespace-nowrap">+${reg.totalItens} un</td>
+                        `;
+                        devTabelaHistorico.appendChild(tr);
+                    });
+                }
+
+                devContadorBaixas.innerText = `Total Operações: ${devTotalOperacoesSessao}`;
+                devContadorItens.innerText = `Total Itens: ${devTotalItensSessao}`;
+                devStatusBox.innerText = "Aguardando leitura de código...";
+            } catch (err) {
+                devStatusBox.innerHTML = `<span class="text-red-400 font-bold">❌ Erro ao carregar histórico do dia.</span>`;
+            }
+        }
+
+        devCampoCodigo.addEventListener('keydown', async function(e) {
+            if (e.key === 'Enter') {
+                const codigoBipado = devCampoCodigo.value.trim();
+                const quantidade = parseInt(devCampoQuantidade.value) || 1;
+                const observacao = devCampoObservacao.value.trim();
+
+                if (!codigoBipado) return;
+
+                devCampoCodigo.disabled = true;
+                devStatusBox.innerText = "Registrando entrada...";
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: "POST",
+                        body: JSON.stringify({
+                            action: "registrarEntradaCD",
+                            codigo: codigoBipado,
+                            quantidade: quantidade,
+                            observacao: observacao
+                        })
+                    });
+
+                    const resultado = await response.json();
+
+                    if (resultado.success) {
+                        tocarBipe(true);
+                        const msgTipo = resultado.tipo === "granel"
+                            ? "Entrada direta no estoque (item a granel)"
+                            : `Entrada por embalagem/regra (${resultado.itensAfetados || 1} item(ns))`;
+
+                        devStatusBox.innerHTML = `<span class="text-sky-400 font-bold">✅ Entrada Processada!</span><br><span class="text-xs text-slate-300 leading-tight block mt-1">${resultado.descricao}<br>(${msgTipo})</span>`;
+
+                        devHistoricoVazio.classList.add('hidden');
+                        devTotalOperacoesSessao++;
+                        devTotalItensSessao += resultado.totalItens;
+                        devContadorBaixas.innerText = `Total Operações: ${devTotalOperacoesSessao}`;
+                        devContadorItens.innerText = `Total Itens: ${devTotalItensSessao}`;
+
+                        const tr = document.createElement('tr');
+                        tr.className = "text-xs border-b border-slate-800 hover:bg-slate-800/50";
+                        tr.innerHTML = `
+                            <td class="p-3 text-slate-500 whitespace-nowrap">${new Date().toLocaleTimeString()}</td>
+                            <td class="p-3 font-mono font-bold text-slate-300 whitespace-nowrap">${codigoBipado}</td>
+                            <td class="p-3 text-slate-200 uppercase whitespace-normal break-words font-semibold leading-snug">${resultado.descricao}</td>
+                            <td class="p-3 text-center font-bold whitespace-nowrap">${devRotuloTipo(resultado.tipo)}</td>
+                            <td class="p-3 text-right text-sky-400 font-bold whitespace-nowrap">+${resultado.totalItens} un</td>
+                        `;
+                        devTabelaHistorico.insertBefore(tr, devTabelaHistorico.firstChild);
+                    } else {
+                        throw new Error(resultado.error || "O item lido não existe ou não está cadastrado!");
+                    }
+                } catch (err) {
+                    var msgErro = err.message || "Item não existe ou não cadastrado.";
+                    devStatusBox.innerHTML = `<span class="text-red-400 font-bold">❌ ${msgErro}</span>`;
+                    abrirModalErro(msgErro, devCampoCodigo);
+                } finally {
+                    devCampoCodigo.disabled = false;
+                    devCampoCodigo.value = '';
+                    devCampoQuantidade.value = '';
+                    devCampoObservacao.value = '';
+
+                    const modalErro = document.getElementById('modal-erro');
+                    if (!modalErro || modalErro.classList.contains('hidden')) {
+                        devCampoCodigo.focus();
+                    }
+                }
+            }
+        });
+
+        // ===================== FOCO AUTOMÁTICO NO CAMPO DE CÓDIGO ATIVO =====================
+        document.addEventListener('click', function(e) {
+            const modalErro = document.getElementById('modal-erro');
+            const modalErroAberto = modalErro && !modalErro.classList.contains('hidden');
+            const dentroDeModal = e.target.closest('#modal-registros') || e.target.closest('#modal-editar') || e.target.closest('#modal-manual');
+            const emCampoAuxiliar = [campoCaixas, campoObservacao, devCampoQuantidade, devCampoObservacao].includes(e.target);
+
+            if (modalErroAberto || dentroDeModal || emCampoAuxiliar || e.target.closest('button')) return;
+
+            if (!telaPedidos.classList.contains('hidden')) {
+                campoCodigo.focus();
+            } else if (!telaDevolucao.classList.contains('hidden')) {
+                devCampoCodigo.focus();
+            }
+        });
+
+        // ===================== MODAL: VER / EDITAR REGISTROS (Pedidos Funcionário) =====================
+        const modalRegistros = document.getElementById('modal-registros');
+        const tabelaRegistros = document.getElementById('tabela-registros');
+        const registrosCarregando = document.getElementById('registros-carregando');
+        const registrosVazio = document.getElementById('registros-vazio');
+
+        async function abrirRegistros() {
+            modalRegistros.classList.remove('hidden');
+
+            tabelaRegistros.innerHTML = '';
+            registrosVazio.classList.add('hidden');
+            registrosCarregando.classList.remove('hidden');
+
+            const somenteHoje = document.getElementById('filtro-somente-hoje').checked;
+            const paramMesa = `&mesa=${encodeURIComponent(MESA_ATUAL)}`;
+            const paramHoje = `&somenteHoje=${somenteHoje}`;
+
+            try {
+                const response = await fetch(`${API_URL}?action=buscarRegistrosSaida&limite=200${paramMesa}${paramHoje}&nocache=${Math.random()}`);
+                const dados = await response.json();
+                registrosCarregando.classList.add('hidden');
+
+                const registros = dados.registros || [];
+                if (registros.length === 0) {
+                    registrosVazio.classList.remove('hidden');
+                    return;
+                }
+
+                registros.forEach(reg => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-800/50";
+                    const hora = reg.dataHora ? new Date(reg.dataHora).toLocaleString() : "";
+                    tr.innerHTML = `
+                        <td class="p-2 text-slate-500 whitespace-nowrap">${hora}</td>
+                        <td class="p-2 font-bold text-slate-300 whitespace-nowrap">${reg.codigo}</td>
+                        <td class="p-2 text-slate-200 uppercase whitespace-normal break-words">${reg.descricao}</td>
+                        <td class="p-2 text-center text-amber-400 font-bold">${reg.caixas}</td>
+                        <td class="p-2 text-right text-emerald-400 font-bold">${reg.totalItens}</td>
+                        <td class="p-2 text-slate-400 whitespace-normal break-words">${reg.observacao || ""}</td>
+                        <td class="p-2 text-center">
+                            <button onclick='abrirEdicao(${JSON.stringify(reg)})' class="text-sky-400 hover:text-sky-300 text-sm" title="Corrigir este lançamento">✏️</button>
+                        </td>
+                    `;
+                    tabelaRegistros.appendChild(tr);
+                });
+            } catch (err) {
+                registrosCarregando.classList.add('hidden');
+                registrosVazio.classList.remove('hidden');
+                registrosVazio.innerText = "Erro ao carregar registros.";
+            }
+        }
+
+        function fecharRegistros() {
+            modalRegistros.classList.add('hidden');
+        }
+
+        const modalEditar = document.getElementById('modal-editar');
+        const editCodigo = document.getElementById('edit-codigo');
+        const editCaixas = document.getElementById('edit-caixas');
+        const editObservacao = document.getElementById('edit-observacao');
+        const editStatus = document.getElementById('edit-status');
+        let linhaEmEdicao = null;
+
+        function abrirEdicao(reg) {
+            linhaEmEdicao = reg.linha;
+            editCodigo.value = reg.codigo;
+            editCaixas.value = reg.caixas;
+            editObservacao.value = reg.observacao || "";
+            editStatus.classList.add('hidden');
+            modalEditar.classList.remove('hidden');
+        }
+
+        function fecharEdicao() {
+            modalEditar.classList.add('hidden');
+            linhaEmEdicao = null;
+        }
+
+        async function salvarEdicao() {
+            if (!linhaEmEdicao) return;
+
+            const novoCodigo = editCodigo.value.trim();
+            const novasCaixas = parseInt(editCaixas.value) || 1;
+            const novaObservacao = editObservacao.value.trim();
+
+            if (!novoCodigo) {
+                alert("Informe um código válido.");
+                return;
+            }
+
+            editStatus.classList.remove('hidden');
+            editStatus.innerText = "Salvando e recalculando estoque...";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "editarRegistroSaida",
+                        linha: linhaEmEdicao,
+                        novoCodigo: novoCodigo,
+                        novasCaixas: novasCaixas,
+                        novaObservacao: novaObservacao
+                    })
+                });
+                const resultado = await response.json();
+
+                if (resultado.success) {
+                    editStatus.innerText = "✅ Atualizado com sucesso!";
+                    setTimeout(() => {
+                        fecharEdicao();
+                        abrirRegistros();
+                        carregarHistoricoDoDia();
+                    }, 700);
+                } else {
+                    editStatus.innerText = "❌ Erro: " + (resultado.error || "não foi possível salvar.");
+                }
+            } catch (err) {
+                editStatus.innerText = "❌ Erro de conexão ao salvar.";
+            }
+        }
+
+        // ===================== LANÇAMENTO MANUAL (ignora caixas/regras) =====================
+        const modalManual = document.getElementById('modal-manual');
+        const manualCodigo = document.getElementById('manual-codigo');
+        const manualQuantidade = document.getElementById('manual-quantidade');
+        const manualObservacao = document.getElementById('manual-observacao');
+        const manualStatus = document.getElementById('manual-status');
+
+        function abrirLancamentoManual() {
+            manualCodigo.value = '';
+            manualQuantidade.value = '';
+            manualObservacao.value = '';
+            manualStatus.classList.add('hidden');
+            modalManual.classList.remove('hidden');
+            setTimeout(() => manualCodigo.focus(), 50);
+        }
+
+        function fecharLancamentoManual() {
+            modalManual.classList.add('hidden');
+            setTimeout(() => campoCodigo.focus(), 50);
+        }
+
+        async function salvarLancamentoManual() {
+            const codigo = manualCodigo.value.trim();
+            const quantidade = parseInt(manualQuantidade.value) || 0;
+            const observacao = manualObservacao.value.trim() || "Lançamento Manual";
+
+            if (!codigo) {
+                manualStatus.classList.remove('hidden');
+                manualStatus.innerHTML = '<span class="text-red-400">Informe um código válido.</span>';
+                manualCodigo.focus();
+                return;
+            }
+            if (quantidade <= 0) {
+                manualStatus.classList.remove('hidden');
+                manualStatus.innerHTML = '<span class="text-red-400">Informe uma quantidade total válida.</span>';
+                manualQuantidade.focus();
+                return;
+            }
+
+            manualStatus.classList.remove('hidden');
+            manualStatus.innerText = "Registrando lançamento...";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "registrarSaidaManual",
+                        codigo: codigo,
+                        quantidade: quantidade,
+                        mesa: MESA_ATUAL,
+                        observacao: observacao
+                    })
+                });
+                const resultado = await response.json();
+
+                if (resultado.success) {
+                    tocarBipe(true);
+                    manualStatus.innerHTML = '<span class="text-emerald-400 font-bold">✅ Lançamento registrado!</span>';
+
+                    historicoVazio.classList.add('hidden');
+                    totalBaixasSessao++;
+                    totalItensSessao += resultado.totalItens;
+                    contadorBaixas.innerText = `Total Operações: ${totalBaixasSessao}`;
+                    contadorItens.innerText = `Total Itens: ${totalItensSessao}`;
+
+                    const tr = document.createElement('tr');
+                    tr.className = "text-xs border-b border-slate-800 hover:bg-slate-800/50";
+                    tr.innerHTML = `
+                        <td class="p-3 text-slate-500 whitespace-nowrap">${new Date().toLocaleTimeString()}</td>
+                        <td class="p-3 font-mono font-bold text-slate-300 whitespace-nowrap">${codigo}</td>
+                        <td class="p-3 text-slate-200 uppercase whitespace-normal break-words font-semibold leading-snug">${resultado.descricao}</td>
+                        <td class="p-3 text-center text-indigo-400 font-bold whitespace-nowrap">Manual</td>
+                        <td class="p-3 text-right text-emerald-400 font-bold whitespace-nowrap">-${resultado.totalItens} un</td>
+                    `;
+                    tabelaHistorico.insertBefore(tr, tabelaHistorico.firstChild);
+
+                    setTimeout(() => {
+                        fecharLancamentoManual();
+                    }, 700);
+                } else {
+                    throw new Error(resultado.error || "Não foi possível registrar o lançamento.");
+                }
+            } catch (err) {
+                manualStatus.innerHTML = `<span class="text-red-400 font-bold">❌ ${err.message || "Erro ao registrar."}</span>`;
+            }
+        }
+
+        [manualCodigo, manualQuantidade].forEach(campo => {
+            campo.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    salvarLancamentoManual();
+                }
+            });
+        });
+
+        // ===================== INICIALIZAÇÃO =====================
+        carregarLogo();
+    </script>
+</body>
+</html>

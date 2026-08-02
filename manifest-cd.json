@@ -1,0 +1,26 @@
+{
+  "name": "Di Solle - CD",
+  "short_name": "CD Di Solle",
+  "description": "Painel do CD: Pedidos Funcionário (Saída) e Devolução para o 48 (Entrada)",
+  "id": "disolle-cd",
+  "start_url": "./cd.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0284c7",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/192/2897/2897808.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2897/2897808.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
