@@ -1,0 +1,13 @@
+{
+  "name": "gerar-embeddings-disolle",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gera a base de reconhecimento por foto (embeddings.json) para o tablet.html da Di Solle",
+  "scripts": {
+    "gerar": "node gerar_embeddings.js"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^4.20.0",
+    "@tensorflow-models/mobilenet": "^2.1.1"
+  }
+}
