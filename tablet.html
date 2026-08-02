@@ -127,36 +127,50 @@
                 </div>
             </div>
             <div class="bg-gray-900 text-right p-4">
-                <span class="text-gray-500 text-xs block font-mono">QUANTIDADE A ADICIONAR</span>
-                <div id="visor-quantidade" class="text-emerald-400 text-4xl font-mono font-bold tracking-wider mt-1">0</div>
+                <div class="flex justify-between items-center mb-1">
+                    <span id="calc-contador-caixas" class="text-emerald-400 text-[11px] font-mono font-bold bg-emerald-900/50 border border-emerald-700 rounded-full px-2 py-0.5">0 caixas</span>
+                    <button onclick="limparTudo()" class="text-gray-500 text-[11px] font-mono hover:text-red-400">🗑 Limpar tudo</button>
+                </div>
+                <div id="calc-formula" class="text-gray-400 text-sm font-mono truncate min-h-[1.25rem]">&nbsp;</div>
+                <span class="text-gray-500 text-xs block font-mono mt-1">QUANTIDADE A DIGITAR</span>
+                <div id="visor-quantidade" class="text-emerald-400 text-5xl font-mono font-bold tracking-wider mt-1">0</div>
+                <div class="border-t border-gray-700 mt-2 pt-2 flex justify-between items-baseline">
+                    <span class="text-gray-500 text-xs font-mono">TOTAL SOMADO</span>
+                    <span id="calc-total-somado" class="text-white text-2xl font-mono font-bold">0</span>
+                </div>
             </div>
-            <div class="grid grid-cols-3 gap-1 bg-gray-200 p-1 no-select">
+            <div class="grid grid-cols-4 gap-1 bg-gray-200 p-1 no-select">
                 <button onclick="digitarNumero('1')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">1</button>
                 <button onclick="digitarNumero('2')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">2</button>
                 <button onclick="digitarNumero('3')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">3</button>
+                <button onclick="adicionarCaixa()" class="row-span-2 bg-emerald-600 active:bg-emerald-700 text-white text-3xl font-bold flex flex-col items-center justify-center leading-none">
+                    <span>+</span>
+                    <span class="text-[10px] font-mono font-bold mt-1 leading-tight">ADICIONAR<br>CAIXA</span>
+                </button>
                 <button onclick="digitarNumero('4')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">4</button>
                 <button onclick="digitarNumero('5')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">5</button>
                 <button onclick="digitarNumero('6')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">6</button>
                 <button onclick="digitarNumero('7')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">7</button>
                 <button onclick="digitarNumero('8')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">8</button>
                 <button onclick="digitarNumero('9')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">9</button>
-                <button onclick="limparVisor()" class="bg-red-50 text-red-600 font-bold py-5 text-lg">C</button>
-                <button onclick="digitarNumero('0')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">0</button>
                 <button onclick="apagarUltimo()" class="bg-gray-100 text-gray-700 py-5 text-xl">⌫</button>
+                <button onclick="digitarNumero('0')" class="col-span-2 bg-white py-5 text-2xl font-bold active:bg-gray-200">0</button>
+                <button onclick="limparVisor()" class="bg-red-50 text-red-600 font-bold py-5 text-lg">C</button>
             </div>
-            <div class="flex border-t border-gray-200">
-                <button onclick="mudarModo('grade')" class="w-1/3 bg-gray-100 font-bold py-4 text-gray-600 text-center">Cancelar</button>
-                <button onclick="salvarEntradaEstoque()" class="w-2/3 bg-emerald-600 text-white font-bold py-4 text-lg">Enviar Planilha ➔</button>
+            <div class="border-t border-gray-200">
+                <button onclick="salvarEntradaEstoque()" class="w-full bg-emerald-600 text-white font-bold py-5 text-xl">Enviar</button>
+                <button onclick="mudarModo('grade')" class="w-full bg-gray-100 font-bold py-3 text-gray-600 text-center text-sm">Cancelar</button>
             </div>
         </section>
     </main>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbw7cLIywvPPUf2GHo2_FZDumJXgRoF4eBPK9b0alvvZOESrH6LWK1RzdI8_0BRkevR94A/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbxphUqdsGywMBqa0TNM_71KVEBs_Gj0LLwHGMQyMShJyw-MU0DdhOlrDm8l1ALI9WVvvw/exec";
 
         let modoAtual = 'grade';
         let produtoSelecionado = null;
         let valorVisor = '0';
+        let caixasDigitadas = [];
         let PRODUTOS_PLANILHA = [];
         let ESTOQUE_PLANILHA = [];
         let HISTORICO_ENTRADAS = [];
@@ -395,30 +409,81 @@
         function abrirCalculadora(produto) {
             produtoSelecionado = produto;
             valorVisor = '0';
-            document.getElementById('visor-quantidade').innerText = valorVisor;
+            caixasDigitadas = [];
             document.getElementById('calc-produto-codigo').innerText = produto.codigo;
             document.getElementById('calc-produto-nome').innerText = produto.descricao;
             
             const urlImg = gerarUrlDrive(produto.imagemId);
             const containerFoto = document.getElementById('calc-container-foto');
             containerFoto.innerHTML = urlImg ? `<img src="${urlImg}" class="w-full h-full object-cover">` : `<div class="text-gray-400 text-xs font-bold">SEM FOTO</div>`;
+            atualizarVisorCalculadora();
             mudarModo('calculadora');
         }
 
+        // Atualiza o número grande sendo digitado
         function digitarNumero(num) {
             if (valorVisor === '0') valorVisor = num;
             else if (valorVisor.length < 7) valorVisor += num;
-            document.getElementById('visor-quantidade').innerText = valorVisor;
+            atualizarVisorCalculadora();
         }
-        function limparVisor() { valorVisor = '0'; document.getElementById('visor-quantidade').innerText = valorVisor; }
+
+        // Apaga o último dígito digitado. Se não há nada digitado (visor em 0)
+        // e já existe uma caixa somada, "desfaz" a última caixa trazendo o valor
+        // dela de volta pro visor para o usuário corrigir.
         function apagarUltimo() {
-            if (valorVisor.length > 1) valorVisor = valorVisor.slice(0, -1); else valorVisor = '0';
+            if (valorVisor.length > 1) {
+                valorVisor = valorVisor.slice(0, -1);
+            } else if (valorVisor !== '0') {
+                valorVisor = '0';
+            } else if (caixasDigitadas.length > 0) {
+                valorVisor = String(caixasDigitadas.pop());
+            }
+            atualizarVisorCalculadora();
+        }
+
+        // "C" limpa só o número que está sendo digitado no momento
+        function limparVisor() {
+            valorVisor = '0';
+            atualizarVisorCalculadora();
+        }
+
+        // Limpa tudo: número atual + todas as caixas já somadas
+        function limparTudo() {
+            valorVisor = '0';
+            caixasDigitadas = [];
+            atualizarVisorCalculadora();
+        }
+
+        // Botão "+" grande: registra o número digitado como uma caixa e soma no total
+        function adicionarCaixa() {
+            const valor = parseInt(valorVisor);
+            if (!valor || valor <= 0) return;
+            caixasDigitadas.push(valor);
+            valorVisor = '0';
+            atualizarVisorCalculadora();
+        }
+
+        function atualizarVisorCalculadora() {
             document.getElementById('visor-quantidade').innerText = valorVisor;
+
+            const totalCaixas = caixasDigitadas.length;
+            const somaTotal = caixasDigitadas.reduce((acc, v) => acc + v, 0);
+
+            document.getElementById('calc-contador-caixas').innerText = `${totalCaixas} caixa${totalCaixas === 1 ? '' : 's'}`;
+            document.getElementById('calc-formula').innerText = totalCaixas > 0 ? caixasDigitadas.join(' + ') : '\u00A0';
+            document.getElementById('calc-total-somado').innerText = somaTotal;
         }
 
         async function salvarEntradaEstoque() {
-            const quantidadeInformada = parseInt(valorVisor);
-            if (quantidadeInformada <= 0 || isNaN(quantidadeInformada)) return alert("Quantidade inválida.");
+            // Se o usuário digitou um número e esqueceu de apertar "+", soma ele também
+            const pendente = parseInt(valorVisor);
+            if (pendente > 0) {
+                caixasDigitadas.push(pendente);
+                valorVisor = '0';
+            }
+
+            const quantidadeInformada = caixasDigitadas.reduce((acc, v) => acc + v, 0);
+            if (quantidadeInformada <= 0 || isNaN(quantidadeInformada)) return alert("Quantidade inválida. Digite ao menos uma caixa.");
 
             showLoading("Registrando entrada...");
             try {
@@ -431,6 +496,8 @@
                         quantidade: quantidadeInformada 
                     })
                 });
+                caixasDigitadas = [];
+                valorVisor = '0';
                 await carregarDadosDaPlanilha(true);
                 mudarModo('grade');
             } catch (error) { 
