@@ -119,6 +119,22 @@
                     </div>
                     <p class="absolute bottom-2 left-0 right-0 text-white text-[11px] font-bold drop-shadow">Centralize o item dentro do quadro, preenchendo o máximo possível</p>
                 </div>
+
+                <!-- DICA DE PEÇA: opcional, mas melhora MUITO a precisão, porque restringe a busca
+                     só aos itens daquela peça em vez do catálogo inteiro (a IA de imagem sozinha
+                     não distingue bem faca x colher x espátula quando o cabo é parecido) -->
+                <div class="mt-4">
+                    <p class="text-[11px] font-bold text-gray-500 mb-1.5">Se você já sabe, toque na peça (melhora a precisão):</p>
+                    <div id="cam-filtro-peca" class="flex flex-wrap justify-center gap-1.5">
+                        <button data-peca="" onclick="selecionarPecaCamera('', this)" class="btn-peca-camera btn-filtro-ativo text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100">Não sei / buscar tudo</button>
+                        <button data-peca="01" onclick="selecionarPecaCamera('01', this)" class="btn-peca-camera text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100">🔪 Faca</button>
+                        <button data-peca="02" onclick="selecionarPecaCamera('02', this)" class="btn-peca-camera text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100">🍴 Garfo</button>
+                        <button data-peca="03" onclick="selecionarPecaCamera('03', this)" class="btn-peca-camera text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100">🥄 Colher</button>
+                        <button data-peca="0303" onclick="selecionarPecaCamera('0303', this)" class="btn-peca-camera text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100">☕ Chá</button>
+                        <button data-peca="04" onclick="selecionarPecaCamera('04', this)" class="btn-peca-camera text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100">🥄 Espátula</button>
+                    </div>
+                </div>
+
                 <div class="flex justify-center gap-3 mt-4">
                     <button onclick="cancelarCamera()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-5 rounded-xl text-sm transition">
                         Cancelar
@@ -143,6 +159,7 @@
                     <div>
                         <p class="text-sm font-bold text-gray-800">Toque no item correto abaixo:</p>
                         <p class="text-xs text-gray-400 font-mono">Se nenhum bater, tente outra foto ou selecione manualmente.</p>
+                        <p id="cam-filtro-aplicado" class="hidden text-[11px] font-bold text-indigo-600 mt-1"></p>
                     </div>
                 </div>
                 <div id="cam-aviso-baixa-confianca" class="hidden bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold rounded-lg px-3 py-2 mb-3">
@@ -269,6 +286,9 @@
         const NOMES_LINHA = {
             '14': 'Millenium', '38': 'Inova', '35': 'Prisma', '01': 'Paraty',
             '18': 'Durafio', '17': 'Versatile', '37': 'Utilidade', '04': 'New Tropical'
+        };
+        const NOMES_PECA = {
+            '01': '🔪 Faca', '02': '🍴 Garfo', '03': '🥄 Colher', '0303': '☕ Chá', '04': '🥄 Espátula'
         };
 
         document.getElementById('filtro-data-registro').value = new Date().toISOString().split('T')[0];
@@ -620,6 +640,7 @@
         let mobilenetModel = null;
         let baseEmbeddings = null;   // { "codigo": [vetor...], ... }
         let cameraStream = null;
+        let filtroPecaCamera = ''; // dica opcional de peça (faca/garfo/colher/...) pra restringir a busca
 
         function mostrarPainelCamera(nome) {
             ['cam-estado-inicial', 'cam-estado-preview', 'cam-estado-analisando', 'cam-estado-resultado', 'cam-erro']
@@ -629,6 +650,13 @@
 
         function mostrarEstadoInicialCamera() {
             mostrarPainelCamera('cam-estado-inicial');
+        }
+
+        // Guarda a dica de peça escolhida antes da foto e destaca o botão tocado
+        function selecionarPecaCamera(peca, elementoBotao) {
+            filtroPecaCamera = peca;
+            document.querySelectorAll('.btn-peca-camera').forEach(btn => btn.classList.remove('btn-filtro-ativo'));
+            elementoBotao.classList.add('btn-filtro-ativo');
         }
 
         function mostrarErroCamera(msg) {
@@ -681,7 +709,15 @@
 
         function cancelarCamera() {
             pararCamera();
+            resetarPecaCamera();
             mostrarEstadoInicialCamera();
+        }
+
+        function resetarPecaCamera() {
+            filtroPecaCamera = '';
+            document.querySelectorAll('.btn-peca-camera').forEach(btn => btn.classList.remove('btn-filtro-ativo'));
+            const botaoTudo = document.querySelector('.btn-peca-camera[data-peca=""]');
+            if (botaoTudo) botaoTudo.classList.add('btn-filtro-ativo');
         }
 
         async function capturarFoto() {
@@ -741,7 +777,21 @@
             imgTensor.dispose();
             embeddingTensor.dispose();
 
-            const pontuacoes = Object.keys(baseEmbeddings).map(codigo => ({
+            // Se o usuário deu a dica de peça (Faca/Garfo/Colher/...), restringe a comparação
+            // só aos códigos daquela peça. Isso evita que a IA de imagem confunda categorias
+            // (ex.: colher de cabo preto sendo puxada como faca de cabo preto), já que ela
+            // compara pixels e não sabe, sozinha, que são formatos de peça diferentes.
+            let codigosParaComparar = Object.keys(baseEmbeddings);
+            if (filtroPecaCamera) {
+                codigosParaComparar = codigosParaComparar.filter(codigo => {
+                    const partes = extrairPartesCodigo(codigo);
+                    return filtroPecaCamera.length === 4
+                        ? partes.peca === filtroPecaCamera
+                        : partes.peca.startsWith(filtroPecaCamera);
+                });
+            }
+
+            const pontuacoes = codigosParaComparar.map(codigo => ({
                 codigo: codigo,
                 score: calcularSimilaridadeCosseno(vetorFoto, baseEmbeddings[codigo])
             }));
@@ -787,14 +837,43 @@
             renderizarCandidatos(candidatos, baixaConfianca);
         }
 
+        // Permite, direto na tela de resultado, ampliar a busca pro catálogo inteiro
+        // sem precisar tirar a foto de novo (útil se a dica de peça escolhida estava errada)
+        async function buscarNoCatalogoInteiro(event) {
+            if (event) event.preventDefault();
+            filtroPecaCamera = '';
+            document.querySelectorAll('.btn-peca-camera').forEach(btn => btn.classList.remove('btn-filtro-ativo'));
+            const botaoTudo = document.querySelector('.btn-peca-camera[data-peca=""]');
+            if (botaoTudo) botaoTudo.classList.add('btn-filtro-ativo');
+
+            const canvas = document.getElementById('cam-canvas');
+            mostrarPainelCamera('cam-estado-analisando');
+            document.getElementById('cam-analisando-detalhe').innerText = "Buscando no catálogo inteiro...";
+            try {
+                await reconhecerImagem(canvas);
+            } catch (err) {
+                mostrarErroCamera(err.message || "Erro ao analisar a imagem.");
+            }
+        }
+
         function renderizarCandidatos(candidatos, baixaConfianca) {
             const container = document.getElementById('cam-lista-candidatos');
             const vazio = document.getElementById('cam-nenhum-candidato');
             const avisoBaixaConfianca = document.getElementById('cam-aviso-baixa-confianca');
+            const filtroAplicado = document.getElementById('cam-filtro-aplicado');
             container.innerHTML = '';
 
             if (avisoBaixaConfianca) {
                 avisoBaixaConfianca.classList.toggle('hidden', !baixaConfianca);
+            }
+
+            if (filtroAplicado) {
+                if (filtroPecaCamera) {
+                    filtroAplicado.innerHTML = `Buscando só em: ${NOMES_PECA[filtroPecaCamera] || filtroPecaCamera} · <a href="#" onclick="buscarNoCatalogoInteiro(event)" class="underline">buscar no catálogo inteiro</a>`;
+                    filtroAplicado.classList.remove('hidden');
+                } else {
+                    filtroAplicado.classList.add('hidden');
+                }
             }
 
             if (candidatos.length === 0) {
