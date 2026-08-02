@@ -1,0 +1,24 @@
+{
+  "name": "Di Solle - Controle de Estoque",
+  "short_name": "Estoque DS",
+  "description": "Painel de Entrada e Saída de Estoque Integrado Di Solle",
+  "start_url": "./tablet.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#059669",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/192/2897/2897808.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2897/2897808.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
