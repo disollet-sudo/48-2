@@ -32,6 +32,10 @@
                 <button id="tab-btn-injetoras" onclick="trocarAba('injetoras')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
                     🏭 Injetoras (Entradas)
                 </button>
+                <button id="tab-btn-estoque" onclick="trocarAba('estoque')" class="relative px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
+                    📦 Estoque
+                    <span id="badge-negativos" class="hidden absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-bold rounded-full h-4 w-4 flex items-center justify-center border-2 border-slate-950">0</span>
+                </button>
             </div>
 
             <select id="filtro-periodo" onchange="carregarRelatorios()" class="bg-slate-800 border border-slate-700 text-xs font-mono text-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500">
@@ -277,10 +281,50 @@
 
         </div>
 
+        <!-- =================================================================== -->
+        <!-- ABA 3: PAINEL DE ESTOQUE (ZERADOS / MAIOR ESTOQUE / ALERTAS NEGATIVOS) -->
+        <!-- =================================================================== -->
+        <div id="secao-estoque" class="hidden space-y-6">
+
+            <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <button id="btn-sub-negativos" onclick="mudarSubEstoque('negativos')" class="text-left bg-slate-900 border-2 border-slate-800 rounded-2xl p-5 shadow-md hover:border-red-500/50 transition">
+                    <div class="flex items-center justify-between">
+                        <span class="text-2xl">🚨</span>
+                        <span id="contagem-negativos" class="text-3xl font-mono font-bold text-red-400">0</span>
+                    </div>
+                    <p class="text-xs font-bold text-slate-200 mt-2">Alertas de Estoque Negativo</p>
+                    <p class="text-[11px] text-slate-500 font-mono mt-1">Itens abaixo de zero, com diagnóstico</p>
+                </button>
+
+                <button id="btn-sub-zerados" onclick="mudarSubEstoque('zerados')" class="text-left bg-slate-900 border-2 border-slate-800 rounded-2xl p-5 shadow-md hover:border-slate-500/50 transition">
+                    <div class="flex items-center justify-between">
+                        <span class="text-2xl">⚪</span>
+                        <span id="contagem-zerados" class="text-3xl font-mono font-bold text-slate-300">0</span>
+                    </div>
+                    <p class="text-xs font-bold text-slate-200 mt-2">Itens Zerados</p>
+                    <p class="text-[11px] text-slate-500 font-mono mt-1">Estoque exatamente em 0</p>
+                </button>
+
+                <button id="btn-sub-top" onclick="mudarSubEstoque('top')" class="text-left bg-slate-900 border-2 border-slate-800 rounded-2xl p-5 shadow-md hover:border-emerald-500/50 transition">
+                    <div class="flex items-center justify-between">
+                        <span class="text-2xl">🏆</span>
+                        <span id="contagem-top" class="text-3xl font-mono font-bold text-emerald-400">0</span>
+                    </div>
+                    <p class="text-xs font-bold text-slate-200 mt-2">Maior Estoque</p>
+                    <p class="text-[11px] text-slate-500 font-mono mt-1">Top 10 itens com mais saldo</p>
+                </button>
+            </section>
+
+            <section class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-md">
+                <div id="conteudo-sub-estoque" class="min-h-[200px]"></div>
+            </section>
+
+        </div>
+
     </main>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbxWtUNfjeHC0s-pRrPhDIiCi3DKG28WkCaihWTTLpgTYLxNzTVPNQcURR4-lQ0PLwoRZg/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbxphUqdsGywMBqa0TNM_71KVEBs_Gj0LLwHGMQyMShJyw-MU0DdhOlrDm8l1ALI9WVvvw/exec";
 
         let abaAtiva = 'mesas';
 
@@ -301,19 +345,26 @@
 
             const btnMesas = document.getElementById('tab-btn-mesas');
             const btnInjetoras = document.getElementById('tab-btn-injetoras');
+            const btnEstoque = document.getElementById('tab-btn-estoque');
             const secaoMesas = document.getElementById('secao-mesas');
             const secaoInjetoras = document.getElementById('secao-injetoras');
+            const secaoEstoque = document.getElementById('secao-estoque');
 
-            if (novaAba === 'mesas') {
-                btnMesas.className = "px-3 py-1.5 rounded-lg bg-emerald-600 text-white transition cursor-pointer";
-                btnInjetoras.className = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer";
-                secaoMesas.classList.remove('hidden');
-                secaoInjetoras.classList.add('hidden');
-            } else {
-                btnInjetoras.className = "px-3 py-1.5 rounded-lg bg-emerald-600 text-white transition cursor-pointer";
-                btnMesas.className = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer";
-                secaoInjetoras.classList.remove('hidden');
-                secaoMesas.classList.add('hidden');
+            const ativo = "px-3 py-1.5 rounded-lg bg-emerald-600 text-white transition cursor-pointer";
+            const inativo = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer";
+            const ativoRel = "relative " + ativo;
+            const inativoRel = "relative " + inativo;
+
+            btnMesas.className = novaAba === 'mesas' ? ativo : inativo;
+            btnInjetoras.className = novaAba === 'injetoras' ? ativo : inativo;
+            btnEstoque.className = novaAba === 'estoque' ? ativoRel : inativoRel;
+
+            secaoMesas.classList.toggle('hidden', novaAba !== 'mesas');
+            secaoInjetoras.classList.toggle('hidden', novaAba !== 'injetoras');
+            secaoEstoque.classList.toggle('hidden', novaAba !== 'estoque');
+
+            if (novaAba === 'estoque') {
+                carregarPainelEstoque();
             }
         }
 
@@ -653,6 +704,150 @@
         }
 
         carregarRelatorios();
+        carregarPainelEstoque(true);
+
+        // ==================== PAINEL DE ESTOQUE (ZERADOS / TOP 10 / ALERTAS NEGATIVOS) ====================
+        let DADOS_ESTOQUE_PAINEL = { zerados: [], topEstoque: [], negativos: [] };
+        let subEstoqueAtivo = 'negativos';
+
+        function formatarDataHora(d) {
+            if (!d) return '-';
+            try { return new Date(d).toLocaleString('pt-BR'); } catch (e) { return '-'; }
+        }
+
+        async function carregarPainelEstoque(silencioso = false) {
+            try {
+                const response = await fetch(`${API_URL}?action=buscarPainelEstoque&nocache=${Math.random()}`);
+                const dados = await response.json();
+                if (!dados.success) return;
+
+                DADOS_ESTOQUE_PAINEL.zerados = dados.zerados || [];
+                DADOS_ESTOQUE_PAINEL.topEstoque = dados.topEstoque || [];
+                DADOS_ESTOQUE_PAINEL.negativos = dados.negativos || [];
+
+                const badge = document.getElementById('badge-negativos');
+                if (DADOS_ESTOQUE_PAINEL.negativos.length > 0) {
+                    badge.innerText = DADOS_ESTOQUE_PAINEL.negativos.length;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+
+                document.getElementById('contagem-negativos').innerText = DADOS_ESTOQUE_PAINEL.negativos.length;
+                document.getElementById('contagem-zerados').innerText = DADOS_ESTOQUE_PAINEL.zerados.length;
+                document.getElementById('contagem-top').innerText = DADOS_ESTOQUE_PAINEL.topEstoque.length;
+
+                if (abaAtiva === 'estoque') renderizarSubEstoque();
+            } catch (error) {
+                if (!silencioso) console.error("Erro ao carregar painel de estoque.");
+            }
+        }
+
+        function mudarSubEstoque(sub) {
+            subEstoqueAtivo = sub;
+            renderizarSubEstoque();
+        }
+
+        function renderizarSubEstoque() {
+            const container = document.getElementById('conteudo-sub-estoque');
+            ['negativos', 'zerados', 'top'].forEach(s => {
+                document.getElementById('btn-sub-' + s).classList.remove('border-red-500', 'border-slate-500', 'border-emerald-500');
+            });
+            const corBorda = subEstoqueAtivo === 'negativos' ? 'border-red-500' : (subEstoqueAtivo === 'zerados' ? 'border-slate-500' : 'border-emerald-500');
+            document.getElementById('btn-sub-' + subEstoqueAtivo).classList.add(corBorda);
+
+            if (subEstoqueAtivo === 'negativos') {
+                if (DADOS_ESTOQUE_PAINEL.negativos.length === 0) {
+                    container.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs font-mono uppercase">✅ Nenhum item com estoque negativo no momento.</div>`;
+                    return;
+                }
+                container.innerHTML = `<h2 class="text-sm font-bold font-mono text-slate-200 mb-4">🚨 Itens com Estoque Negativo</h2>` +
+                    DADOS_ESTOQUE_PAINEL.negativos.map(item => `
+                    <div class="border border-red-900/50 bg-red-950/30 rounded-xl p-4 mb-3">
+                        <div class="flex justify-between items-start gap-2">
+                            <div>
+                                <span class="text-[11px] font-mono bg-slate-950 border border-red-900/50 text-red-300 px-2 py-0.5 rounded">${item.codigo}</span>
+                                <h4 class="font-bold text-slate-100 text-sm mt-1 uppercase">${item.descricao || 'Item sem descrição'}</h4>
+                            </div>
+                            <span class="text-2xl font-mono font-bold text-red-400 whitespace-nowrap">${item.quantidade}</span>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-2 leading-snug"><strong class="text-red-300">Possível causa:</strong> ${item.diagnostico}</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-[11px] font-mono text-slate-400">
+                            <div class="bg-slate-950 rounded-lg p-2 border border-slate-800">
+                                <span class="block font-bold text-slate-300">Última saída (mesa)</span>
+                                ${item.ultimaSaida ? `${formatarDataHora(item.ultimaSaida.data)} • ${item.ultimaSaida.mesa || '-'} • ${item.ultimaSaida.delta} un` : 'Nenhuma registrada'}
+                            </div>
+                            <div class="bg-slate-950 rounded-lg p-2 border border-slate-800">
+                                <span class="block font-bold text-slate-300">Última entrada (tablet)</span>
+                                ${item.ultimaEntrada ? `${formatarDataHora(item.ultimaEntrada.data)} • +${item.ultimaEntrada.quantidade} un` : 'Nenhuma registrada'}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                return;
+            }
+
+            if (subEstoqueAtivo === 'zerados') {
+                if (DADOS_ESTOQUE_PAINEL.zerados.length === 0) {
+                    container.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs font-mono uppercase">Nenhum item zerado no momento.</div>`;
+                    return;
+                }
+                container.innerHTML = `
+                    <h2 class="text-sm font-bold font-mono text-slate-200 mb-4">⚪ Itens Zerados</h2>
+                    <div class="overflow-x-auto">
+                    <table class="w-full text-left font-mono text-xs">
+                        <thead>
+                            <tr class="bg-slate-950 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                <th class="p-3">Código</th>
+                                <th class="p-3">Descrição</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60">
+                            ${DADOS_ESTOQUE_PAINEL.zerados.map(item => `
+                                <tr class="hover:bg-slate-800/40">
+                                    <td class="p-3 font-bold text-slate-300 whitespace-nowrap">${item.codigo}</td>
+                                    <td class="p-3 text-slate-200 uppercase">${item.descricao || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    </div>
+                `;
+                return;
+            }
+
+            if (subEstoqueAtivo === 'top') {
+                if (DADOS_ESTOQUE_PAINEL.topEstoque.length === 0) {
+                    container.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs font-mono uppercase">Sem dados de estoque.</div>`;
+                    return;
+                }
+                container.innerHTML = `
+                    <h2 class="text-sm font-bold font-mono text-slate-200 mb-4">🏆 Top 10 Maior Estoque</h2>
+                    <div class="overflow-x-auto">
+                    <table class="w-full text-left font-mono text-xs">
+                        <thead>
+                            <tr class="bg-slate-950 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                <th class="p-3 w-10">#</th>
+                                <th class="p-3">Código</th>
+                                <th class="p-3">Descrição</th>
+                                <th class="p-3 text-right text-emerald-400">Quantidade</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60">
+                            ${DADOS_ESTOQUE_PAINEL.topEstoque.map((item, i) => `
+                                <tr class="hover:bg-slate-800/40">
+                                    <td class="p-3 text-slate-500">${i + 1}</td>
+                                    <td class="p-3 font-bold text-slate-300 whitespace-nowrap">${item.codigo}</td>
+                                    <td class="p-3 text-slate-200 uppercase">${item.descricao || '-'}</td>
+                                    <td class="p-3 text-right font-bold text-emerald-400">${(item.quantidade || 0).toLocaleString('pt-BR')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    </div>
+                `;
+            }
+        }
     </script>
 </body>
 </html>
