@@ -6,6 +6,9 @@
     <title>Painel Tablet - Di Solle</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Reconhecimento de imagem 100% no navegador: gratuito, sem limite de uso, sem enviar fotos pra nenhum servidor -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
     <style>
         .no-select { -webkit-user-select: none; user-select: none; }
         .btn-filtro-ativo { background-color: #059669 !important; color: #ffffff !important; border-color: #059669 !important; }
@@ -27,6 +30,9 @@
         <div class="flex flex-wrap justify-center space-x-2">
             <button id="btn-nav-grade" onclick="mudarModo('grade')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 sm:px-4 rounded-lg transition text-xs sm:text-sm">
                 📥 Registrar Entrada
+            </button>
+            <button id="btn-nav-camera" onclick="mudarModo('camera')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 sm:px-4 rounded-lg transition text-xs sm:text-sm">
+                📷 Reconhecer por Foto
             </button>
             <button id="btn-nav-estoque" onclick="mudarModo('estoque')" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-3 sm:px-4 rounded-lg transition text-xs sm:text-sm">
                 📦 Ver Estoque Real
@@ -84,6 +90,78 @@
             </div>
 
             <div id="grid-produtos" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+        </section>
+
+        <!-- SEÇÃO RECONHECIMENTO POR FOTO -->
+        <section id="tela-camera" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-gray-200 max-w-2xl mx-auto">
+            <div class="mb-4 pb-4 border-b border-gray-100">
+                <h2 class="text-xl font-bold text-gray-800">📷 Reconhecer Item por Foto</h2>
+                <p class="text-xs text-gray-500 mt-1">Aponte a câmera para o item, capture a foto e a IA sugere os produtos mais parecidos. Confirme o correto para lançar a entrada.</p>
+            </div>
+
+            <!-- ESTADO 1: BOTÃO PARA LIGAR A CÂMERA -->
+            <div id="cam-estado-inicial" class="text-center py-10">
+                <div class="text-6xl mb-4">📷</div>
+                <button onclick="iniciarCamera()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 px-8 rounded-xl text-base shadow-lg active:scale-95 transition">
+                    Iniciar Câmera
+                </button>
+                <p class="text-[11px] text-gray-400 mt-3 font-mono">A câmera só liga quando você tocar aqui.</p>
+            </div>
+
+            <!-- ESTADO 2: PREVIEW AO VIVO + BOTÃO CAPTURAR -->
+            <div id="cam-estado-preview" class="hidden text-center">
+                <div class="relative rounded-xl overflow-hidden bg-black mx-auto max-w-md">
+                    <video id="cam-video" autoplay playsinline muted class="w-full h-auto"></video>
+                </div>
+                <div class="flex justify-center gap-3 mt-4">
+                    <button onclick="cancelarCamera()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-5 rounded-xl text-sm transition">
+                        Cancelar
+                    </button>
+                    <button onclick="capturarFoto()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl text-base shadow-lg active:scale-95 transition">
+                        📸 Capturar Foto
+                    </button>
+                </div>
+            </div>
+
+            <!-- ESTADO 3: ANALISANDO -->
+            <div id="cam-estado-analisando" class="hidden text-center py-14">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mx-auto mb-4"></div>
+                <p class="text-gray-600 font-bold text-sm">Analisando imagem...</p>
+                <p id="cam-analisando-detalhe" class="text-gray-400 text-xs font-mono mt-1">Preparando o reconhecimento</p>
+            </div>
+
+            <!-- ESTADO 4: RESULTADOS / CANDIDATOS -->
+            <div id="cam-estado-resultado" class="hidden">
+                <div class="flex items-center gap-4 mb-4">
+                    <img id="cam-foto-capturada" class="w-20 h-20 object-cover rounded-lg border border-gray-200 flex-shrink-0" />
+                    <div>
+                        <p class="text-sm font-bold text-gray-800">Toque no item correto abaixo:</p>
+                        <p class="text-xs text-gray-400 font-mono">Se nenhum bater, tente outra foto ou selecione manualmente.</p>
+                    </div>
+                </div>
+                <div id="cam-lista-candidatos" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+                <div id="cam-nenhum-candidato" class="hidden text-center py-8 text-gray-400 text-xs uppercase font-mono">
+                    Não conseguimos identificar o item com confiança suficiente.
+                </div>
+                <div class="flex justify-center gap-3 mt-6">
+                    <button onclick="mudarModo('grade')" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-5 rounded-xl text-sm transition">
+                        Selecionar Manualmente
+                    </button>
+                    <button onclick="iniciarCamera()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-5 rounded-xl text-sm shadow-lg active:scale-95 transition">
+                        📷 Tirar Outra Foto
+                    </button>
+                </div>
+            </div>
+
+            <div id="cam-erro" class="hidden text-center py-10">
+                <div class="text-4xl mb-3">⚠️</div>
+                <p id="cam-erro-msg" class="text-red-500 font-bold text-sm mb-4"></p>
+                <button onclick="mostrarEstadoInicialCamera()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2 px-5 rounded-xl text-sm transition">
+                    Tentar Novamente
+                </button>
+            </div>
+
+            <canvas id="cam-canvas" class="hidden"></canvas>
         </section>
 
         <!-- SEÇÃO REGISTROS -->
@@ -165,7 +243,7 @@
     </main>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbzwjASwoirNStmjWrrXttEi1t2Y8-mDM_nh1SVVTsdI3mejJGGKq5F4-qisjm_nbq7nUA/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbw7cLIywvPPUf2GHo2_FZDumJXgRoF4eBPK9b0alvvZOESrH6LWK1RzdI8_0BRkevR94A/exec";
 
         let modoAtual = 'grade';
         let produtoSelecionado = null;
@@ -237,15 +315,22 @@
         }
 
         function mudarModo(novoModo) {
+            // Se estava na tela de câmera e está saindo dela, desliga a câmera (economiza bateria/privacidade)
+            if (modoAtual === 'camera' && novoModo !== 'camera') {
+                pararCamera();
+            }
+
             modoAtual = novoModo;
             const telaGrade = document.getElementById('tela-grade');
             const telaCalc = document.getElementById('tela-calculadora');
             const telaRegistros = document.getElementById('tela-registros');
+            const telaCamera = document.getElementById('tela-camera');
             const titulo = document.getElementById('titulo-pagina');
 
             telaGrade.classList.add('hidden');
             telaCalc.classList.add('hidden');
             telaRegistros.classList.add('hidden');
+            telaCamera.classList.add('hidden');
 
             if (novoModo === 'grade') {
                 telaGrade.classList.remove('hidden');
@@ -260,6 +345,9 @@
                 renderizarTabelaRegistros();
             } else if (novoModo === 'calculadora') {
                 telaCalc.classList.remove('hidden');
+            } else if (novoModo === 'camera') {
+                telaCamera.classList.remove('hidden');
+                mostrarEstadoInicialCamera();
             }
         }
 
@@ -505,6 +593,177 @@
             } finally { 
                 hideLoading(); 
             }
+        }
+
+        // ===================== RECONHECIMENTO DE ITEM POR FOTO =====================
+        // Tudo roda DENTRO do navegador do tablet (TensorFlow.js + MobileNet via CDN):
+        // gratuito, sem limite de uso e sem enviar nenhuma foto pra fora do tablet.
+
+        const EMBEDDINGS_URL = './embeddings.json'; // gerado uma vez com o script gerar_embeddings.js
+        const CAM_TOP_N = 6;             // quantos candidatos mostrar
+        const CAM_SIMILARIDADE_MINIMA = 0.35; // abaixo disso, nem mostra o candidato (ajuste depois de testar)
+
+        let mobilenetModel = null;
+        let baseEmbeddings = null;   // { "codigo": [vetor...], ... }
+        let cameraStream = null;
+
+        function mostrarPainelCamera(nome) {
+            ['cam-estado-inicial', 'cam-estado-preview', 'cam-estado-analisando', 'cam-estado-resultado', 'cam-erro']
+                .forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById(nome).classList.remove('hidden');
+        }
+
+        function mostrarEstadoInicialCamera() {
+            mostrarPainelCamera('cam-estado-inicial');
+        }
+
+        function mostrarErroCamera(msg) {
+            document.getElementById('cam-erro-msg').innerText = msg;
+            mostrarPainelCamera('cam-erro');
+        }
+
+        // Carrega o modelo de IA e a base de comparação (só na primeira vez que forem usados)
+        async function garantirBaseCarregada() {
+            const detalhe = document.getElementById('cam-analisando-detalhe');
+
+            if (!mobilenetModel) {
+                if (detalhe) detalhe.innerText = "Carregando modelo de reconhecimento (1ª vez pode demorar)...";
+                mobilenetModel = await mobilenet.load({ version: 2, alpha: 1.0 });
+            }
+
+            if (!baseEmbeddings) {
+                if (detalhe) detalhe.innerText = "Carregando base de produtos conhecidos...";
+                const resp = await fetch(`${EMBEDDINGS_URL}?nocache=${Math.random()}`);
+                if (!resp.ok) {
+                    throw new Error("Base de reconhecimento (embeddings.json) não encontrada. Gere com o script antes de usar.");
+                }
+                baseEmbeddings = await resp.json();
+            }
+        }
+
+        async function iniciarCamera() {
+            mostrarPainelCamera('cam-estado-inicial'); // evita "piscar" resultado antigo enquanto pede permissão
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 720 } },
+                    audio: false
+                });
+                const video = document.getElementById('cam-video');
+                video.srcObject = cameraStream;
+                mostrarPainelCamera('cam-estado-preview');
+            } catch (err) {
+                mostrarErroCamera("Não foi possível acessar a câmera. Verifique a permissão do navegador e tente novamente.");
+            }
+        }
+
+        function pararCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            const video = document.getElementById('cam-video');
+            if (video) video.srcObject = null;
+        }
+
+        function cancelarCamera() {
+            pararCamera();
+            mostrarEstadoInicialCamera();
+        }
+
+        async function capturarFoto() {
+            const video = document.getElementById('cam-video');
+            const canvas = document.getElementById('cam-canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            document.getElementById('cam-foto-capturada').src = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Desliga a câmera assim que a foto é tirada (não fica rodando à toa)
+            pararCamera();
+
+            mostrarPainelCamera('cam-estado-analisando');
+            document.getElementById('cam-analisando-detalhe').innerText = "Preparando o reconhecimento";
+
+            try {
+                await reconhecerImagem(canvas);
+            } catch (err) {
+                mostrarErroCamera(err.message || "Erro ao analisar a imagem.");
+            }
+        }
+
+        function calcularSimilaridadeCosseno(a, b) {
+            let dot = 0, normA = 0, normB = 0;
+            for (let i = 0; i < a.length; i++) {
+                dot += a[i] * b[i];
+                normA += a[i] * a[i];
+                normB += b[i] * b[i];
+            }
+            if (normA === 0 || normB === 0) return 0;
+            return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+        }
+
+        async function reconhecerImagem(canvas) {
+            await garantirBaseCarregada();
+
+            document.getElementById('cam-analisando-detalhe').innerText = "Comparando com a base de produtos...";
+
+            const imgTensor = tf.browser.fromPixels(canvas);
+            const embeddingTensor = mobilenetModel.infer(imgTensor, true);
+            const vetorFoto = Array.from(await embeddingTensor.data());
+            imgTensor.dispose();
+            embeddingTensor.dispose();
+
+            const pontuacoes = Object.keys(baseEmbeddings).map(codigo => ({
+                codigo: codigo,
+                score: calcularSimilaridadeCosseno(vetorFoto, baseEmbeddings[codigo])
+            }));
+
+            pontuacoes.sort((a, b) => b.score - a.score);
+
+            const candidatos = pontuacoes
+                .filter(p => p.score >= CAM_SIMILARIDADE_MINIMA)
+                .slice(0, CAM_TOP_N)
+                .map(p => {
+                    const produto = PRODUTOS_PLANILHA.find(prod => prod.codigo === p.codigo);
+                    return produto ? { ...produto, score: p.score } : null;
+                })
+                .filter(Boolean);
+
+            renderizarCandidatos(candidatos);
+        }
+
+        function renderizarCandidatos(candidatos) {
+            const container = document.getElementById('cam-lista-candidatos');
+            const vazio = document.getElementById('cam-nenhum-candidato');
+            container.innerHTML = '';
+
+            if (candidatos.length === 0) {
+                vazio.classList.remove('hidden');
+            } else {
+                vazio.classList.add('hidden');
+                candidatos.forEach(prod => {
+                    const urlImagem = gerarUrlDrive(prod.imagemId);
+                    const pct = Math.round(prod.score * 100);
+                    const card = document.createElement('div');
+                    card.className = "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col cursor-pointer hover:shadow-md hover:border-indigo-400 transition active:scale-95";
+                    card.onclick = () => abrirCalculadora(prod);
+                    card.innerHTML = `
+                        <div class="h-24 bg-gray-50 flex items-center justify-center relative border-b border-gray-100 overflow-hidden">
+                            ${urlImagem ? `<img src="${urlImagem}" class="w-full h-full object-cover">` : `<div class="text-gray-400 font-bold text-[10px] text-center p-2">SEM FOTO</div>`}
+                            <div class="absolute top-1 right-1 bg-indigo-600 text-white text-[10px] font-bold font-mono px-1.5 py-0.5 rounded shadow">${pct}%</div>
+                        </div>
+                        <div class="p-2 flex-1">
+                            <span class="text-[10px] font-mono text-gray-400 block font-bold">${prod.codigo}</span>
+                            <h4 class="text-[11px] font-bold text-gray-700 mt-0.5 uppercase line-clamp-2 leading-tight">${prod.descricao}</h4>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+
+            mostrarPainelCamera('cam-estado-resultado');
         }
 
         carregarDadosDaPlanilha();
