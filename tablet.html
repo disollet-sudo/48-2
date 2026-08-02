@@ -6,9 +6,11 @@
     <title>Painel Tablet - Di Solle</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Reconhecimento de imagem 100% no navegador: gratuito, sem limite de uso, sem enviar fotos pra nenhum servidor -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+    <!-- Reconhecimento de imagem 100% no navegador: gratuito, sem limite de uso, sem enviar fotos pra nenhum servidor.
+         Usa Transformers.js com o MESMO modelo (CLIP ViT-B/32) usado pelo script gerar_embeddings.js,
+         pra garantir que os vetores comparados estejam no mesmo espaço vetorial. A biblioteca é
+         carregada via import() dinâmico dentro do código (ver função garantirBaseCarregada). -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <style>
         .no-select { -webkit-user-select: none; user-select: none; }
         .btn-filtro-ativo { background-color: #059669 !important; color: #ffffff !important; border-color: #059669 !important; }
@@ -112,14 +114,7 @@
             <div id="cam-estado-preview" class="hidden text-center">
                 <div class="relative rounded-xl overflow-hidden bg-black mx-auto max-w-md">
                     <video id="cam-video" autoplay playsinline muted class="w-full h-auto"></video>
-                    <!-- Guia de enquadramento: força o item a ficar centralizado e preenchendo o quadro,
-                         igual às fotos de referência dos produtos (fundo neutro, item ocupando o frame) -->
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div id="cam-guia-quadro" class="w-[78%] aspect-square border-2 border-emerald-400/90 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"></div>
-                    </div>
-                    <p class="absolute bottom-2 left-0 right-0 text-white text-[11px] font-bold drop-shadow">Centralize o item dentro do quadro, preenchendo o máximo possível</p>
                 </div>
-
                 <div class="flex justify-center gap-3 mt-4">
                     <button onclick="cancelarCamera()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-5 rounded-xl text-sm transition">
                         Cancelar
@@ -145,9 +140,6 @@
                         <p class="text-sm font-bold text-gray-800">Toque no item correto abaixo:</p>
                         <p class="text-xs text-gray-400 font-mono">Se nenhum bater, tente outra foto ou selecione manualmente.</p>
                     </div>
-                </div>
-                <div id="cam-aviso-baixa-confianca" class="hidden bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold rounded-lg px-3 py-2 mb-3">
-                    ⚠️ Confiança baixa em todos os resultados. Confira com atenção antes de confirmar, ou tente outra foto com o item centralizado e preenchendo o quadro.
                 </div>
                 <div id="cam-lista-candidatos" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
                 <div id="cam-nenhum-candidato" class="hidden text-center py-8 text-gray-400 text-xs uppercase font-mono">
@@ -606,19 +598,18 @@
         }
 
         // ===================== RECONHECIMENTO DE ITEM POR FOTO =====================
-        // Tudo roda DENTRO do navegador do tablet (TensorFlow.js + MobileNet via CDN):
+        // Tudo roda DENTRO do navegador do tablet (Transformers.js + CLIP via CDN):
         // gratuito, sem limite de uso e sem enviar nenhuma foto pra fora do tablet.
+        // IMPORTANTE: precisa ser o MESMO modelo usado no gerar_embeddings.js (Xenova/clip-vit-base-patch32),
+        // senão os vetores ficam em espaços diferentes e a comparação por cosseno não significa nada.
 
         const EMBEDDINGS_URL = './embeddings.json'; // gerado uma vez com o script gerar_embeddings.js
+        const CLIP_MODEL_ID = 'Xenova/clip-vit-base-patch32'; // mesmo modelo do gerar_embeddings.js
+        const TRANSFORMERS_JS_URL = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
         const CAM_TOP_N = 6;             // quantos candidatos mostrar
-        // Abaixo desse valor, o candidato deixa de contar como "confiança suficiente"
-        // (mas ainda aparece na tela, marcado como baixa confiança — veja renderizarCandidatos).
-        // COMO CALIBRAR: tire algumas fotos reais dos itens, abra o console do navegador
-        // (o reconhecimento imprime uma tabela com os scores de cada foto) e veja que valor
-        // os itens CORRETOS costumam atingir. Ajuste este número para ficar um pouco abaixo disso.
-        const CAM_SIMILARIDADE_MINIMA = 0.25;
+        const CAM_SIMILARIDADE_MINIMA = 0.35; // abaixo disso, nem mostra o candidato (ajuste depois de testar)
 
-        let mobilenetModel = null;
+        let clipExtractor = null;   // função do transformers.js que gera o embedding da foto
         let baseEmbeddings = null;   // { "codigo": [vetor...], ... }
         let cameraStream = null;
 
@@ -637,20 +628,17 @@
             mostrarPainelCamera('cam-erro');
         }
 
-        // Carrega o modelo de IA e a base de comparação (só na primeira vez que forem usados)
+        // Carrega o modelo de IA (CLIP, via transformers.js) e a base de comparação
+        // (só na primeira vez que forem usados; fica em cache no navegador depois)
         async function garantirBaseCarregada() {
             const detalhe = document.getElementById('cam-analisando-detalhe');
 
-            if (!mobilenetModel) {
+            if (!clipExtractor) {
                 if (detalhe) detalhe.innerText = "Carregando modelo de reconhecimento (1ª vez pode demorar)...";
-                // IMPORTANTE: essa configuração precisa ser IDÊNTICA à usada no script que
-                // gerou o embeddings.json (gerar_embeddings.js), senão os vetores da foto ao
-                // vivo e os vetores salvos vêm de "espaços" diferentes e a comparação não tem
-                // significado nenhum — mesmo que o código rode sem erro.
-                // MobileNetV1 alpha=0.5 é o que bate com o tamanho de vetor (512) encontrado
-                // no embeddings.json enviado. Se você trocar o modelo usado no script de
-                // geração, troque aqui também (e regenere o embeddings.json).
-                mobilenetModel = await mobilenet.load({ version: 1, alpha: 0.50 });
+                const { pipeline, env } = await import(TRANSFORMERS_JS_URL);
+                // Evita tentar carregar modelos "locais" (só usa o cache do navegador / Hugging Face Hub)
+                env.allowLocalModels = false;
+                clipExtractor = await pipeline('image-feature-extraction', CLIP_MODEL_ID);
             }
 
             if (!baseEmbeddings) {
@@ -659,35 +647,13 @@
                 if (!resp.ok) {
                     throw new Error("Base de reconhecimento (embeddings.json) não encontrada. Gere com o script antes de usar.");
                 }
-                baseEmbeddings = await resp.json();
-
-                // TRAVA DE SEGURANÇA: confere se o tamanho dos vetores da base bate com o
-                // que o modelo carregado acima realmente produz. Sem essa checagem, um
-                // descompasso de modelo/alpha entre este app e o gerar_embeddings.js quebra
-                // a comparação de forma silenciosa (os scores viram NaN e o reconhecimento
-                // passa a devolver resultados praticamente aleatórios, sem nenhum erro visível).
-                const codigosBase = Object.keys(baseEmbeddings);
-                if (codigosBase.length > 0) {
-                    const tamanhoBase = baseEmbeddings[codigosBase[0]].length;
-
-                    // Roda uma inferência "de mentira" (imagem em branco) só pra descobrir
-                    // o tamanho do vetor que ESTE modelo carregado realmente produz.
-                    const tensorProbe = tf.zeros([224, 224, 3]);
-                    const embeddingProbe = mobilenetModel.infer(tensorProbe, true);
-                    const tamanhoModelo = embeddingProbe.size;
-                    tensorProbe.dispose();
-                    embeddingProbe.dispose();
-
-                    if (tamanhoBase !== tamanhoModelo) {
-                        baseEmbeddings = null; // não deixa usar uma base incompatível
-                        throw new Error(
-                            `A base de reconhecimento (embeddings.json) tem vetores de tamanho ${tamanhoBase}, ` +
-                            `mas o modelo carregado aqui gera vetores de tamanho ${tamanhoModelo}. ` +
-                            `O gerar_embeddings.js e este app precisam usar exatamente a mesma configuração ` +
-                            `de modelo (version/alpha) — confira e regenere o embeddings.json.`
-                        );
-                    }
-                }
+                const bruto = await resp.json();
+                // Alguns códigos no embeddings.json têm espaço sobrando (bug do gerar_embeddings.js
+                // ao ler nomes de arquivo); normaliza aqui pra não perder o match com PRODUTOS_PLANILHA.
+                baseEmbeddings = {};
+                Object.keys(bruto).forEach(codigo => {
+                    baseEmbeddings[codigo.trim()] = bruto[codigo];
+                });
             }
         }
 
@@ -723,24 +689,12 @@
         async function capturarFoto() {
             const video = document.getElementById('cam-video');
             const canvas = document.getElementById('cam-canvas');
-
-            // Guarda o quadro cheio (mesma área do guia mostrado na tela: 78% da menor
-            // dimensão do vídeo, removendo já boa parte do fundo/mãos/rosto). A análise em
-            // si usa vários recortes DESSE quadro (ver reconhecerImagem), então aqui só
-            // precisamos de uma captura de boa resolução.
-            const vw = video.videoWidth;
-            const vh = video.videoHeight;
-            const lado = Math.min(vw, vh) * 0.78;
-            const sx = (vw - lado) / 2;
-            const sy = (vh - lado) / 2;
-
-            const TAMANHO_SAIDA = 500;
-            canvas.width = TAMANHO_SAIDA;
-            canvas.height = TAMANHO_SAIDA;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, sx, sy, lado, lado, 0, 0, TAMANHO_SAIDA, TAMANHO_SAIDA);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            document.getElementById('cam-foto-capturada').src = canvas.toDataURL('image/jpeg', 0.85);
+            document.getElementById('cam-foto-capturada').src = canvas.toDataURL('image/jpeg', 0.8);
 
             // Desliga a câmera assim que a foto é tirada (não fica rodando à toa)
             pararCamera();
@@ -766,73 +720,25 @@
             return dot / (Math.sqrt(normA) * Math.sqrt(normB));
         }
 
-        // Gera o embedding MobileNet de um recorte quadrado (0-1 = fração do lado do canvas)
-        // do canvas já capturado.
-        function extrairEmbeddingDoRecorte(canvasOrigem, fracao) {
-            const lado = canvasOrigem.width * fracao;
-            const offset = (canvasOrigem.width - lado) / 2;
-
-            const canvasRecorte = document.createElement('canvas');
-            canvasRecorte.width = 224;
-            canvasRecorte.height = 224;
-            canvasRecorte.getContext('2d').drawImage(
-                canvasOrigem, offset, offset, lado, lado, 0, 0, 224, 224
-            );
-
-            const imgTensor = tf.browser.fromPixels(canvasRecorte);
-            const embeddingTensor = mobilenetModel.infer(imgTensor, true);
-            const vetor = Array.from(embeddingTensor.dataSync());
-            imgTensor.dispose();
-            embeddingTensor.dispose();
-            return vetor;
-        }
-
-        // Frações de recorte usadas na análise: cobre desde o quadro inteiro (pega o talher
-        // todo, cabo + cabeça) até um zoom bem fechado (isola só a cabeça: lâmina/bojo/dentes,
-        // que é a parte que mais diferencia faca de colher de garfo). Rodar a comparação nos
-        // três e ficar com a MELHOR pontuação de cada produto deixa o reconhecimento tolerante
-        // a como a pessoa encaixou o item no quadro na hora da foto.
-        const CAM_FRACOES_RECORTE = [1.0, 0.62, 0.4];
-
         async function reconhecerImagem(canvas) {
             await garantirBaseCarregada();
 
-            document.getElementById('cam-analisando-detalhe').innerText = "Analisando o item em diferentes enquadramentos...";
-
-            const vetoresFoto = CAM_FRACOES_RECORTE.map(fracao => extrairEmbeddingDoRecorte(canvas, fracao));
-
             document.getElementById('cam-analisando-detalhe').innerText = "Comparando com a base de produtos...";
 
-            const codigos = Object.keys(baseEmbeddings);
-            const pontuacoesPorCodigo = new Map(); // dedupa por código já sem espaço, mantendo o melhor score
-            codigos.forEach(codigo => {
-                const scorePorRecorte = vetoresFoto.map(v => calcularSimilaridadeCosseno(v, baseEmbeddings[codigo]));
-                const score = Math.max(...scorePorRecorte);
-                // Alguns códigos no embeddings.json vêm com espaço sobrando no fim
-                // (ex.: "0101050005000 "), e um deles até aparece duplicado (com e sem
-                // espaço) apontando pro mesmo produto. Sem o trim + dedupe, esse produto
-                // some dos resultados (não bate com PRODUTOS_PLANILHA) ou aparece 2x.
-                const codigoLimpo = codigo.trim();
-                const anterior = pontuacoesPorCodigo.get(codigoLimpo);
-                if (!anterior || score > anterior) {
-                    pontuacoesPorCodigo.set(codigoLimpo, score);
-                }
-            });
-            const pontuacoes = Array.from(pontuacoesPorCodigo, ([codigo, score]) => ({ codigo, score }));
+            // Mesma chamada usada no gerar_embeddings.js (sem opções extras), pra gerar
+            // um vetor no mesmo formato/espaço dos embeddings salvos em embeddings.json
+            const dataUrlFoto = canvas.toDataURL('image/jpeg', 0.9);
+            const output = await clipExtractor(dataUrlFoto);
+            const vetorFoto = Array.from(output.data);
+
+            const pontuacoes = Object.keys(baseEmbeddings).map(codigo => ({
+                codigo: codigo,
+                score: calcularSimilaridadeCosseno(vetorFoto, baseEmbeddings[codigo])
+            }));
 
             pontuacoes.sort((a, b) => b.score - a.score);
 
-            // LOG DE CALIBRAGEM: mostra no console os melhores scores desta foto,
-            // mesmo os que não passaram no corte. Use isso para ajustar
-            // CAM_SIMILARIDADE_MINIMA com base no que realmente acontece no tablet
-            // (o valor "ideal" varia conforme como embeddings.json foi gerado).
-            console.table(pontuacoes.slice(0, 10).map(p => ({
-                codigo: p.codigo,
-                score: p.score.toFixed(3),
-                descricao: (PRODUTOS_PLANILHA.find(prod => prod.codigo === p.codigo) || {}).descricao || ''
-            })));
-
-            let candidatos = pontuacoes
+            const candidatos = pontuacoes
                 .filter(p => p.score >= CAM_SIMILARIDADE_MINIMA)
                 .slice(0, CAM_TOP_N)
                 .map(p => {
@@ -841,33 +747,13 @@
                 })
                 .filter(Boolean);
 
-            let baixaConfianca = false;
-
-            // Nada passou no corte de confiança: em vez de travar numa tela vazia,
-            // mostra os melhores candidatos mesmo assim, avisando que a confiança é baixa.
-            if (candidatos.length === 0) {
-                baixaConfianca = true;
-                candidatos = pontuacoes
-                    .slice(0, CAM_TOP_N)
-                    .map(p => {
-                        const produto = PRODUTOS_PLANILHA.find(prod => prod.codigo === p.codigo);
-                        return produto ? { ...produto, score: p.score } : null;
-                    })
-                    .filter(Boolean);
-            }
-
-            renderizarCandidatos(candidatos, baixaConfianca);
+            renderizarCandidatos(candidatos);
         }
 
-        function renderizarCandidatos(candidatos, baixaConfianca) {
+        function renderizarCandidatos(candidatos) {
             const container = document.getElementById('cam-lista-candidatos');
             const vazio = document.getElementById('cam-nenhum-candidato');
-            const avisoBaixaConfianca = document.getElementById('cam-aviso-baixa-confianca');
             container.innerHTML = '';
-
-            if (avisoBaixaConfianca) {
-                avisoBaixaConfianca.classList.toggle('hidden', !baixaConfianca);
-            }
 
             if (candidatos.length === 0) {
                 vazio.classList.remove('hidden');
