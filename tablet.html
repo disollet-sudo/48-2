@@ -112,6 +112,12 @@
             <div id="cam-estado-preview" class="hidden text-center">
                 <div class="relative rounded-xl overflow-hidden bg-black mx-auto max-w-md">
                     <video id="cam-video" autoplay playsinline muted class="w-full h-auto"></video>
+                    <!-- Guia de enquadramento: força o item a ficar centralizado e preenchendo o quadro,
+                         igual às fotos de referência dos produtos (fundo neutro, item ocupando o frame) -->
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div id="cam-guia-quadro" class="w-[78%] aspect-square border-2 border-emerald-400/90 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"></div>
+                    </div>
+                    <p class="absolute bottom-2 left-0 right-0 text-white text-[11px] font-bold drop-shadow">Centralize o item dentro do quadro, preenchendo o máximo possível</p>
                 </div>
                 <div class="flex justify-center gap-3 mt-4">
                     <button onclick="cancelarCamera()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-5 rounded-xl text-sm transition">
@@ -138,6 +144,9 @@
                         <p class="text-sm font-bold text-gray-800">Toque no item correto abaixo:</p>
                         <p class="text-xs text-gray-400 font-mono">Se nenhum bater, tente outra foto ou selecione manualmente.</p>
                     </div>
+                </div>
+                <div id="cam-aviso-baixa-confianca" class="hidden bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold rounded-lg px-3 py-2 mb-3">
+                    ⚠️ Confiança baixa em todos os resultados. Confira com atenção antes de confirmar, ou tente outra foto com o item centralizado e preenchendo o quadro.
                 </div>
                 <div id="cam-lista-candidatos" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
                 <div id="cam-nenhum-candidato" class="hidden text-center py-8 text-gray-400 text-xs uppercase font-mono">
@@ -601,7 +610,12 @@
 
         const EMBEDDINGS_URL = './embeddings.json'; // gerado uma vez com o script gerar_embeddings.js
         const CAM_TOP_N = 6;             // quantos candidatos mostrar
-        const CAM_SIMILARIDADE_MINIMA = 0.35; // abaixo disso, nem mostra o candidato (ajuste depois de testar)
+        // Abaixo desse valor, o candidato deixa de contar como "confiança suficiente"
+        // (mas ainda aparece na tela, marcado como baixa confiança — veja renderizarCandidatos).
+        // COMO CALIBRAR: tire algumas fotos reais dos itens, abra o console do navegador
+        // (o reconhecimento imprime uma tabela com os scores de cada foto) e veja que valor
+        // os itens CORRETOS costumam atingir. Ajuste este número para ficar um pouco abaixo disso.
+        const CAM_SIMILARIDADE_MINIMA = 0.25;
 
         let mobilenetModel = null;
         let baseEmbeddings = null;   // { "codigo": [vetor...], ... }
@@ -673,12 +687,24 @@
         async function capturarFoto() {
             const video = document.getElementById('cam-video');
             const canvas = document.getElementById('cam-canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            document.getElementById('cam-foto-capturada').src = canvas.toDataURL('image/jpeg', 0.8);
+            // Recorta apenas o quadrado central (mesma área do guia mostrado na tela),
+            // que é o correspondente a 78% da menor dimensão do vídeo.
+            // Isso remove fundo, mãos, rosto etc. e deixa o enquadramento parecido
+            // com o das fotos de referência dos produtos (item centralizado, preenchendo o frame).
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const lado = Math.min(vw, vh) * 0.78;
+            const sx = (vw - lado) / 2;
+            const sy = (vh - lado) / 2;
+
+            const TAMANHO_SAIDA = 400; // quadrado, mesmo tamanho sempre ajuda a consistência do modelo
+            canvas.width = TAMANHO_SAIDA;
+            canvas.height = TAMANHO_SAIDA;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, sx, sy, lado, lado, 0, 0, TAMANHO_SAIDA, TAMANHO_SAIDA);
+
+            document.getElementById('cam-foto-capturada').src = canvas.toDataURL('image/jpeg', 0.85);
 
             // Desliga a câmera assim que a foto é tirada (não fica rodando à toa)
             pararCamera();
@@ -722,7 +748,17 @@
 
             pontuacoes.sort((a, b) => b.score - a.score);
 
-            const candidatos = pontuacoes
+            // LOG DE CALIBRAGEM: mostra no console os melhores scores desta foto,
+            // mesmo os que não passaram no corte. Use isso para ajustar
+            // CAM_SIMILARIDADE_MINIMA com base no que realmente acontece no tablet
+            // (o valor "ideal" varia conforme como embeddings.json foi gerado).
+            console.table(pontuacoes.slice(0, 10).map(p => ({
+                codigo: p.codigo,
+                score: p.score.toFixed(3),
+                descricao: (PRODUTOS_PLANILHA.find(prod => prod.codigo === p.codigo) || {}).descricao || ''
+            })));
+
+            let candidatos = pontuacoes
                 .filter(p => p.score >= CAM_SIMILARIDADE_MINIMA)
                 .slice(0, CAM_TOP_N)
                 .map(p => {
@@ -731,13 +767,35 @@
                 })
                 .filter(Boolean);
 
-            renderizarCandidatos(candidatos);
+            let baixaConfianca = false;
+
+            // Nada passou no corte de confiança: em vez de travar numa tela vazia,
+            // mostra os melhores candidatos mesmo assim, avisando que a confiança é baixa.
+            // Isso também ajuda a perceber, na prática, se o problema é o corte
+            // (CAM_SIMILARIDADE_MINIMA alto demais) ou se o item realmente não bate com nada.
+            if (candidatos.length === 0) {
+                baixaConfianca = true;
+                candidatos = pontuacoes
+                    .slice(0, CAM_TOP_N)
+                    .map(p => {
+                        const produto = PRODUTOS_PLANILHA.find(prod => prod.codigo === p.codigo);
+                        return produto ? { ...produto, score: p.score } : null;
+                    })
+                    .filter(Boolean);
+            }
+
+            renderizarCandidatos(candidatos, baixaConfianca);
         }
 
-        function renderizarCandidatos(candidatos) {
+        function renderizarCandidatos(candidatos, baixaConfianca) {
             const container = document.getElementById('cam-lista-candidatos');
             const vazio = document.getElementById('cam-nenhum-candidato');
+            const avisoBaixaConfianca = document.getElementById('cam-aviso-baixa-confianca');
             container.innerHTML = '';
+
+            if (avisoBaixaConfianca) {
+                avisoBaixaConfianca.classList.toggle('hidden', !baixaConfianca);
+            }
 
             if (candidatos.length === 0) {
                 vazio.classList.remove('hidden');
