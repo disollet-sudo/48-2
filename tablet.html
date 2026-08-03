@@ -6,11 +6,9 @@
     <title>Painel Tablet - Di Solle</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Reconhecimento de imagem 100% no navegador: gratuito, sem limite de uso, sem enviar fotos pra nenhum servidor.
-         Usa Transformers.js com o MESMO modelo (CLIP ViT-B/32) usado pelo script gerar_embeddings.js,
-         pra garantir que os vetores comparados estejam no mesmo espaço vetorial. A biblioteca é
-         carregada via import() dinâmico dentro do código (ver função garantirBaseCarregada). -->
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <!-- Reconhecimento de imagem por IA: a foto é enviada pro backend (codigo.gs), que consulta a
+         API do Gemini (Google AI) comparando com o catálogo de produtos da aba "Produto" e devolve
+         os candidatos mais prováveis. Veja a função identificarProdutoPorFotoIA em codigo.gs. -->
     <style>
         .no-select { -webkit-user-select: none; user-select: none; }
         .btn-filtro-ativo { background-color: #059669 !important; color: #ffffff !important; border-color: #059669 !important; }
@@ -245,7 +243,7 @@
     </main>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbw7cLIywvPPUf2GHo2_FZDumJXgRoF4eBPK9b0alvvZOESrH6LWK1RzdI8_0BRkevR94A/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbwaw-ZgVf3zEiW0fkxkKzLyVmT-cUTlqZQB6T__VZzsbOKP6L299B9c5Ndf7Z5pR_Rg6A/exec";
 
         let modoAtual = 'grade';
         let produtoSelecionado = null;
@@ -597,20 +595,11 @@
             }
         }
 
-        // ===================== RECONHECIMENTO DE ITEM POR FOTO =====================
-        // Tudo roda DENTRO do navegador do tablet (Transformers.js + CLIP via CDN):
-        // gratuito, sem limite de uso e sem enviar nenhuma foto pra fora do tablet.
-        // IMPORTANTE: precisa ser o MESMO modelo usado no gerar_embeddings.js (Xenova/clip-vit-base-patch32),
-        // senão os vetores ficam em espaços diferentes e a comparação por cosseno não significa nada.
+        // ===================== RECONHECIMENTO DE ITEM POR FOTO (IA - Gemini) =====================
+        // A foto é enviada pro backend (codigo.gs -> ação "reconhecerFotoIA"), que consulta a API
+        // do Gemini comparando com o catálogo de produtos e devolve os candidatos mais prováveis.
+        // Nada de modelo/base local aqui: quem faz o reconhecimento é a IA no servidor.
 
-        const EMBEDDINGS_URL = './embeddings.json'; // gerado uma vez com o script gerar_embeddings.js
-        const CLIP_MODEL_ID = 'Xenova/clip-vit-base-patch32'; // mesmo modelo do gerar_embeddings.js
-        const TRANSFORMERS_JS_URL = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
-        const CAM_TOP_N = 6;             // quantos candidatos mostrar
-        const CAM_SIMILARIDADE_MINIMA = 0.35; // abaixo disso, nem mostra o candidato (ajuste depois de testar)
-
-        let clipExtractor = null;   // função do transformers.js que gera o embedding da foto
-        let baseEmbeddings = null;   // { "codigo": [vetor...], ... }
         let cameraStream = null;
 
         function mostrarPainelCamera(nome) {
@@ -626,36 +615,6 @@
         function mostrarErroCamera(msg) {
             document.getElementById('cam-erro-msg').innerText = msg;
             mostrarPainelCamera('cam-erro');
-        }
-
-        // Carrega o modelo de IA (CLIP, via transformers.js) e a base de comparação
-        // (só na primeira vez que forem usados; fica em cache no navegador depois)
-        async function garantirBaseCarregada() {
-            const detalhe = document.getElementById('cam-analisando-detalhe');
-
-            if (!clipExtractor) {
-                if (detalhe) detalhe.innerText = "Carregando modelo de reconhecimento (1ª vez pode demorar)...";
-                const { pipeline, env } = await import(TRANSFORMERS_JS_URL);
-                // Evita tentar carregar modelos "locais" (só usa o cache do navegador / Hugging Face Hub)
-                env.allowLocalModels = false;
-                clipExtractor = await pipeline('image-feature-extraction', CLIP_MODEL_ID);
-            }
-
-            if (!baseEmbeddings) {
-                if (detalhe) detalhe.innerText = "Carregando base de produtos conhecidos...";
-                const resp = await fetch(`${EMBEDDINGS_URL}?nocache=${Math.random()}`);
-                if (!resp.ok) {
-                    throw new Error("Base de reconhecimento (embeddings.json) não encontrada. Gere com o script antes de usar.");
-                }
-                const bruto = await resp.json();
-                // Alguns códigos no embeddings.json têm espaço sobrando (bug do gerar_embeddings.js
-                // ao ler nomes de arquivo); normaliza aqui pra não perder o match com PRODUTOS_PLANILHA.
-                // Formato esperado por item: { embedding: [...512 números], cor: [r,g,b] }
-                baseEmbeddings = {};
-                Object.keys(bruto).forEach(codigo => {
-                    baseEmbeddings[codigo.trim()] = bruto[codigo];
-                });
-            }
         }
 
         async function iniciarCamera() {
@@ -710,97 +669,32 @@
             }
         }
 
-        function calcularSimilaridadeCosseno(a, b) {
-            let dot = 0, normA = 0, normB = 0;
-            for (let i = 0; i < a.length; i++) {
-                dot += a[i] * b[i];
-                normA += a[i] * a[i];
-                normB += b[i] * b[i];
-            }
-            if (normA === 0 || normB === 0) return 0;
-            return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-        }
-
-        // Mesma lógica do gerar_embeddings.js (calcularCorMediaIgnorandoFundo): calcula a cor
-        // média real do item na foto, ignorando pixels de fundo claro/pouco saturado.
-        function calcularCorMediaDaFoto(canvas) {
-            const ctx = canvas.getContext('2d');
-            const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            let rSum = 0, gSum = 0, bSum = 0, count = 0;
-
-            for (let i = 0; i < width * height; i++) {
-                const idx = i * 4; // RGBA
-                const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-
-                const max = Math.max(r, g, b);
-                const min = Math.min(r, g, b);
-                const luminosidade = (r + g + b) / 3;
-                const saturacao = max === 0 ? 0 : (max - min) / max;
-
-                const ehFundoClaro = luminosidade > 210 && saturacao < 0.12;
-                if (ehFundoClaro) continue;
-
-                rSum += r; gSum += g; bSum += b; count++;
-            }
-
-            if (count === 0) return [200, 200, 200];
-            return [Math.round(rSum / count), Math.round(gSum / count), Math.round(bSum / count)];
-        }
-
-        // Converte a distância euclidiana entre duas cores RGB numa similaridade de 0 a 1
-        function calcularSimilaridadeCor(corA, corB) {
-            const dist = Math.sqrt(
-                (corA[0] - corB[0]) ** 2 +
-                (corA[1] - corB[1]) ** 2 +
-                (corA[2] - corB[2]) ** 2
-            );
-            const DIST_MAXIMA = Math.sqrt(3 * 255 ** 2); // ~441.7, distância máxima possível em RGB
-            return 1 - (dist / DIST_MAXIMA);
-        }
-
-        // Peso de cada critério no score final: forma/silhueta (CLIP) importa mais,
-        // mas a cor decide o empate entre variantes da mesma peça (ex: mesma colher,
-        // cabo preto vs cabo capuccino), que é onde o CLIP sozinho vinha errando.
-        const PESO_FORMA = 0.6;
-        const PESO_COR = 0.4;
-
+        // Envia a foto pro backend (codigo.gs), que consulta a IA do Gemini e devolve os
+        // candidatos mais prováveis (já cruzados com código/descrição/foto da aba "Produto").
         async function reconhecerImagem(canvas) {
-            await garantirBaseCarregada();
+            document.getElementById('cam-analisando-detalhe').innerText = "Enviando foto para a IA...";
 
-            document.getElementById('cam-analisando-detalhe').innerText = "Comparando com a base de produtos...";
+            // Qualidade um pouco mais baixa deixa o upload/analise mais rápido sem perder
+            // detalhe que a IA precise pra reconhecer o item
+            const dataUrlFoto = canvas.toDataURL('image/jpeg', 0.85);
 
-            // Mesma chamada usada no gerar_embeddings.js (sem opções extras), pra gerar
-            // um vetor no mesmo formato/espaço dos embeddings salvos em embeddings.json
-            const dataUrlFoto = canvas.toDataURL('image/jpeg', 0.9);
-            const output = await clipExtractor(dataUrlFoto);
-            const vetorFoto = Array.from(output.data);
-
-            // Cor real do item na foto (ignorando fundo), pra desempatar entre variantes
-            // de cor da mesma peça/linha que o CLIP sozinho não diferencia bem
-            const corFoto = calcularCorMediaDaFoto(canvas);
-
-            const pontuacoes = Object.keys(baseEmbeddings).map(codigo => {
-                const produtoBase = baseEmbeddings[codigo];
-                const scoreForma = calcularSimilaridadeCosseno(vetorFoto, produtoBase.embedding);
-                const scoreCor = calcularSimilaridadeCor(corFoto, produtoBase.cor);
-                return {
-                    codigo: codigo,
-                    score: (PESO_FORMA * scoreForma) + (PESO_COR * scoreCor)
-                };
+            const resposta = await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                    action: "reconhecerFotoIA",
+                    imagemBase64: dataUrlFoto
+                })
             });
 
-            pontuacoes.sort((a, b) => b.score - a.score);
+            document.getElementById('cam-analisando-detalhe').innerText = "Analisando com a IA...";
 
-            const candidatos = pontuacoes
-                .filter(p => p.score >= CAM_SIMILARIDADE_MINIMA)
-                .slice(0, CAM_TOP_N)
-                .map(p => {
-                    const produto = PRODUTOS_PLANILHA.find(prod => prod.codigo === p.codigo);
-                    return produto ? { ...produto, score: p.score } : null;
-                })
-                .filter(Boolean);
+            const resultado = await resposta.json();
 
-            renderizarCandidatos(candidatos);
+            if (!resultado.success) {
+                throw new Error(resultado.error || "Não foi possível analisar a imagem.");
+            }
+
+            renderizarCandidatos(resultado.candidatos || []);
         }
 
         function renderizarCandidatos(candidatos) {
