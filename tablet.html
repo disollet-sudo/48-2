@@ -96,7 +96,7 @@
         <section id="tela-camera" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-gray-200 max-w-2xl mx-auto">
             <div class="mb-4 pb-4 border-b border-gray-100">
                 <h2 class="text-xl font-bold text-gray-800">📷 Reconhecer Item por Foto</h2>
-                <p class="text-xs text-gray-500 mt-1">Aponte a câmera para o item, capture a foto e a IA sugere os produtos mais parecidos. Confirme o correto para lançar a entrada.</p>
+                <p class="text-xs text-gray-500 mt-1">Aponte a câmera para o item. Assim que a IA reconhecer com confiança, o item aparece automaticamente pra você confirmar.</p>
             </div>
 
             <!-- ESTADO 1: BOTÃO PARA LIGAR A CÂMERA -->
@@ -108,49 +108,55 @@
                 <p class="text-[11px] text-gray-400 mt-3 font-mono">A câmera só liga quando você tocar aqui.</p>
             </div>
 
-            <!-- ESTADO 2: PREVIEW AO VIVO + BOTÃO CAPTURAR -->
+            <!-- ESTADO 2: PREVIEW AO VIVO COM BUSCA AUTOMÁTICA -->
             <div id="cam-estado-preview" class="hidden text-center">
                 <div class="relative rounded-xl overflow-hidden bg-black mx-auto max-w-md">
                     <video id="cam-video" autoplay playsinline muted class="w-full h-auto"></video>
+                    <div class="absolute bottom-0 left-0 right-0 bg-black/60 py-2 px-3">
+                        <p id="cam-status-busca" class="text-white text-xs font-mono">🔍 Procurando item...</p>
+                    </div>
                 </div>
                 <div class="flex justify-center gap-3 mt-4">
                     <button onclick="cancelarCamera()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-5 rounded-xl text-sm transition">
                         Cancelar
                     </button>
                     <button onclick="capturarFoto()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl text-base shadow-lg active:scale-95 transition">
-                        📸 Capturar Foto
+                        📸 Capturar Agora
                     </button>
                 </div>
+                <p class="text-[11px] text-gray-400 mt-3 font-mono">A busca automática acontece sozinha. Só toque em "Capturar Agora" se quiser forçar uma análise imediata.</p>
             </div>
 
-            <!-- ESTADO 3: ANALISANDO -->
+            <!-- ESTADO 3: ANALISANDO (usado na captura manual) -->
             <div id="cam-estado-analisando" class="hidden text-center py-14">
                 <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mx-auto mb-4"></div>
                 <p class="text-gray-600 font-bold text-sm">Analisando imagem...</p>
                 <p id="cam-analisando-detalhe" class="text-gray-400 text-xs font-mono mt-1">Preparando o reconhecimento</p>
             </div>
 
-            <!-- ESTADO 4: RESULTADOS / CANDIDATOS -->
-            <div id="cam-estado-resultado" class="hidden">
-                <div class="flex items-center gap-4 mb-4">
-                    <img id="cam-foto-capturada" class="w-20 h-20 object-cover rounded-lg border border-gray-200 flex-shrink-0" />
-                    <div>
-                        <p class="text-sm font-bold text-gray-800">Toque no item correto abaixo:</p>
-                        <p class="text-xs text-gray-400 font-mono">Se nenhum bater, tente outra foto ou selecione manualmente.</p>
-                    </div>
+            <!-- ESTADO 4: CONFIRMAÇÃO DO ITEM ENCONTRADO -->
+            <div id="cam-estado-confirmar" class="hidden text-center py-4">
+                <p class="text-sm font-bold text-gray-800 mb-4">A IA encontrou este item:</p>
+                <div class="flex items-center justify-center gap-4 mb-2">
+                    <img id="cam-confirmar-foto" class="w-20 h-20 object-cover rounded-lg border border-gray-200 flex-shrink-0" />
+                    <div class="text-3xl text-gray-300">→</div>
+                    <div id="cam-confirmar-produto-img" class="w-20 h-20 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0"></div>
                 </div>
-                <div id="cam-lista-candidatos" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
-                <div id="cam-nenhum-candidato" class="hidden text-center py-8 text-gray-400 text-xs uppercase font-mono">
-                    Não conseguimos identificar o item com confiança suficiente.
-                </div>
+                <span id="cam-confirmar-codigo" class="text-xs font-mono text-gray-400 block font-bold mt-2"></span>
+                <h4 id="cam-confirmar-descricao" class="text-base font-bold text-gray-800 uppercase mt-1"></h4>
+                <p id="cam-confirmar-score" class="text-xs text-indigo-600 font-mono font-bold mt-1"></p>
+
                 <div class="flex justify-center gap-3 mt-6">
-                    <button onclick="mudarModo('grade')" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-5 rounded-xl text-sm transition">
-                        Selecionar Manualmente
+                    <button onclick="recusarItemEncontrado()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-5 rounded-xl text-sm transition">
+                        ❌ Não é esse
                     </button>
-                    <button onclick="iniciarCamera()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-5 rounded-xl text-sm shadow-lg active:scale-95 transition">
-                        📷 Tirar Outra Foto
+                    <button onclick="confirmarItemEncontrado()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-xl text-base shadow-lg active:scale-95 transition">
+                        ✅ Sim, é esse
                     </button>
                 </div>
+                <button onclick="mudarModo('grade')" class="text-gray-400 hover:text-gray-600 text-xs font-mono mt-4 underline">
+                    Ou selecionar manualmente
+                </button>
             </div>
 
             <div id="cam-erro" class="hidden text-center py-10">
@@ -165,6 +171,7 @@
         </section>
 
         <!-- SEÇÃO REGISTROS -->
+
         <section id="tela-registros" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-gray-100">
                 <div>
@@ -243,7 +250,7 @@
     </main>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbypWGQsF2Yc-mzz-qvP2HiNHL3sYzlBci1LhHLAriTeoq68Xx_SYwmqgk76d8Tr6-fWxQ/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbxxux1dJktahwhsmB1BKJVhXwK9pN-EhHcO0CmfXLpt3GDy9HOteDaNUpmsmBAGD85BQQ/exec";
 
         let modoAtual = 'grade';
         let produtoSelecionado = null;
@@ -596,14 +603,22 @@
         }
 
         // ===================== RECONHECIMENTO DE ITEM POR FOTO (IA - Gemini) =====================
-        // A foto é enviada pro backend (codigo.gs -> ação "reconhecerFotoIA"), que consulta a API
-        // do Gemini comparando com o catálogo de produtos e devolve os candidatos mais prováveis.
-        // Nada de modelo/base local aqui: quem faz o reconhecimento é a IA no servidor.
+        // A câmera fica ligada e, sozinha, tira "fotos" do frame atual a cada poucos segundos e manda
+        // pro backend (codigo.gs -> ação "reconhecerFotoIA"), que consulta a IA do Gemini e devolve o
+        // melhor candidato encontrado no catálogo de produtos. Quando a confiança é alta o suficiente,
+        // a busca automática para e mostra o item pra confirmação — sem precisar apertar "Capturar".
+        // Também dá pra forçar uma análise imediata a qualquer momento com o botão "Capturar Agora".
 
         let cameraStream = null;
+        let buscaAutomaticaTimer = null;
+        let buscaAutomaticaOcupada = false;
+        let itemEncontradoAtual = null;
+
+        const INTERVALO_BUSCA_AUTOMATICA_MS = 1800; // de quanto em quanto tempo tenta reconhecer sozinho
+        const CONFIANCA_MINIMA_AUTOMATICA = 0.75;   // confiança mínima (75%) pra aceitar sem precisar apertar nada
 
         function mostrarPainelCamera(nome) {
-            ['cam-estado-inicial', 'cam-estado-preview', 'cam-estado-analisando', 'cam-estado-resultado', 'cam-erro']
+            ['cam-estado-inicial', 'cam-estado-preview', 'cam-estado-analisando', 'cam-estado-confirmar', 'cam-erro']
                 .forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById(nome).classList.remove('hidden');
         }
@@ -617,7 +632,13 @@
             mostrarPainelCamera('cam-erro');
         }
 
+        function atualizarStatusBusca(msg) {
+            const el = document.getElementById('cam-status-busca');
+            if (el) el.innerText = msg;
+        }
+
         async function iniciarCamera() {
+            itemEncontradoAtual = null;
             mostrarPainelCamera('cam-estado-inicial'); // evita "piscar" resultado antigo enquanto pede permissão
             try {
                 cameraStream = await navigator.mediaDevices.getUserMedia({
@@ -627,12 +648,15 @@
                 const video = document.getElementById('cam-video');
                 video.srcObject = cameraStream;
                 mostrarPainelCamera('cam-estado-preview');
+                atualizarStatusBusca("🔍 Procurando item...");
+                iniciarBuscaAutomatica();
             } catch (err) {
                 mostrarErroCamera("Não foi possível acessar a câmera. Verifique a permissão do navegador e tente novamente.");
             }
         }
 
         function pararCamera() {
+            pararBuscaAutomatica();
             if (cameraStream) {
                 cameraStream.getTracks().forEach(track => track.stop());
                 cameraStream = null;
@@ -646,36 +670,81 @@
             mostrarEstadoInicialCamera();
         }
 
+        function iniciarBuscaAutomatica() {
+            pararBuscaAutomatica();
+            buscaAutomaticaTimer = setInterval(tentarReconhecimentoAutomatico, INTERVALO_BUSCA_AUTOMATICA_MS);
+        }
+
+        function pararBuscaAutomatica() {
+            if (buscaAutomaticaTimer) {
+                clearInterval(buscaAutomaticaTimer);
+                buscaAutomaticaTimer = null;
+            }
+        }
+
+        // Roda sozinho em loop enquanto a tela de câmera estiver aberta: tira o frame atual do
+        // vídeo e consulta a IA. Se achar algo com confiança alta, para o loop e mostra a confirmação.
+        async function tentarReconhecimentoAutomatico() {
+            if (buscaAutomaticaOcupada) return; // não empilha chamadas se a anterior ainda não voltou
+            const video = document.getElementById('cam-video');
+            if (!video || !video.videoWidth) return; // câmera ainda carregando
+
+            buscaAutomaticaOcupada = true;
+            try {
+                const canvas = document.getElementById('cam-canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const candidato = await consultarReconhecimentoIA(canvas);
+
+                if (candidato && candidato.score >= CONFIANCA_MINIMA_AUTOMATICA) {
+                    pararBuscaAutomatica();
+                    const fotoCapturada = canvas.toDataURL('image/jpeg', 0.8);
+                    pararCamera();
+                    mostrarConfirmacaoItem(candidato, fotoCapturada);
+                } else if (candidato) {
+                    atualizarStatusBusca(`🔍 Procurando... (melhor palpite até agora: ${Math.round(candidato.score * 100)}%)`);
+                } else {
+                    atualizarStatusBusca("🔍 Procurando item...");
+                }
+            } catch (err) {
+                atualizarStatusBusca("⚠️ Erro ao consultar a IA, tentando de novo...");
+            } finally {
+                buscaAutomaticaOcupada = false;
+            }
+        }
+
+        // Captura manual: força uma análise imediata do frame atual, independente da busca automática
         async function capturarFoto() {
+            pararBuscaAutomatica();
+
             const video = document.getElementById('cam-video');
             const canvas = document.getElementById('cam-canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const fotoCapturada = canvas.toDataURL('image/jpeg', 0.8);
 
-            document.getElementById('cam-foto-capturada').src = canvas.toDataURL('image/jpeg', 0.8);
-
-            // Desliga a câmera assim que a foto é tirada (não fica rodando à toa)
             pararCamera();
-
             mostrarPainelCamera('cam-estado-analisando');
-            document.getElementById('cam-analisando-detalhe').innerText = "Preparando o reconhecimento";
+            document.getElementById('cam-analisando-detalhe').innerText = "Analisando com a IA...";
 
             try {
-                await reconhecerImagem(canvas);
+                const candidato = await consultarReconhecimentoIA(canvas);
+                if (candidato) {
+                    mostrarConfirmacaoItem(candidato, fotoCapturada);
+                } else {
+                    mostrarErroCamera("Não conseguimos identificar esse item. Tente outro ângulo ou selecione manualmente.");
+                }
             } catch (err) {
                 mostrarErroCamera(err.message || "Erro ao analisar a imagem.");
             }
         }
 
-        // Envia a foto pro backend (codigo.gs), que consulta a IA do Gemini e devolve os
-        // candidatos mais prováveis (já cruzados com código/descrição/foto da aba "Produto").
-        async function reconhecerImagem(canvas) {
-            document.getElementById('cam-analisando-detalhe').innerText = "Enviando foto para a IA...";
-
-            // Qualidade um pouco mais baixa deixa o upload/analise mais rápido sem perder
-            // detalhe que a IA precise pra reconhecer o item
+        // Envia o frame pro backend (codigo.gs), que consulta a IA do Gemini e devolve o melhor
+        // candidato (já cruzado com código/descrição/foto da aba "Produto"), ou null se não achou nada.
+        async function consultarReconhecimentoIA(canvas) {
             const dataUrlFoto = canvas.toDataURL('image/jpeg', 0.85);
 
             const resposta = await fetch(API_URL, {
@@ -686,47 +755,42 @@
                 })
             });
 
-            document.getElementById('cam-analisando-detalhe').innerText = "Analisando com a IA...";
-
             const resultado = await resposta.json();
 
             if (!resultado.success) {
                 throw new Error(resultado.error || "Não foi possível analisar a imagem.");
             }
 
-            renderizarCandidatos(resultado.candidatos || []);
+            return resultado.candidato || null;
         }
 
-        function renderizarCandidatos(candidatos) {
-            const container = document.getElementById('cam-lista-candidatos');
-            const vazio = document.getElementById('cam-nenhum-candidato');
-            container.innerHTML = '';
+        function mostrarConfirmacaoItem(candidato, fotoCapturadaDataUrl) {
+            itemEncontradoAtual = candidato;
 
-            if (candidatos.length === 0) {
-                vazio.classList.remove('hidden');
-            } else {
-                vazio.classList.add('hidden');
-                candidatos.forEach(prod => {
-                    const urlImagem = gerarUrlDrive(prod.imagemId);
-                    const pct = Math.round(prod.score * 100);
-                    const card = document.createElement('div');
-                    card.className = "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col cursor-pointer hover:shadow-md hover:border-indigo-400 transition active:scale-95";
-                    card.onclick = () => abrirCalculadora(prod);
-                    card.innerHTML = `
-                        <div class="h-24 bg-gray-50 flex items-center justify-center relative border-b border-gray-100 overflow-hidden">
-                            ${urlImagem ? `<img src="${urlImagem}" class="w-full h-full object-cover">` : `<div class="text-gray-400 font-bold text-[10px] text-center p-2">SEM FOTO</div>`}
-                            <div class="absolute top-1 right-1 bg-indigo-600 text-white text-[10px] font-bold font-mono px-1.5 py-0.5 rounded shadow">${pct}%</div>
-                        </div>
-                        <div class="p-2 flex-1">
-                            <span class="text-[10px] font-mono text-gray-400 block font-bold">${prod.codigo}</span>
-                            <h4 class="text-[11px] font-bold text-gray-700 mt-0.5 uppercase line-clamp-2 leading-tight">${prod.descricao}</h4>
-                        </div>
-                    `;
-                    container.appendChild(card);
-                });
+            document.getElementById('cam-confirmar-foto').src = fotoCapturadaDataUrl;
+
+            const urlImagemProduto = gerarUrlDrive(candidato.imagemId);
+            document.getElementById('cam-confirmar-produto-img').innerHTML = urlImagemProduto
+                ? `<img src="${urlImagemProduto}" class="w-full h-full object-cover">`
+                : `<div class="text-gray-400 font-bold text-[10px] text-center p-2">SEM FOTO</div>`;
+
+            document.getElementById('cam-confirmar-codigo').innerText = candidato.codigo;
+            document.getElementById('cam-confirmar-descricao').innerText = candidato.descricao;
+            document.getElementById('cam-confirmar-score').innerText = Math.round(candidato.score * 100) + '% de confiança';
+
+            mostrarPainelCamera('cam-estado-confirmar');
+        }
+
+        function confirmarItemEncontrado() {
+            if (itemEncontradoAtual) {
+                abrirCalculadora(itemEncontradoAtual);
+                itemEncontradoAtual = null;
             }
+        }
 
-            mostrarPainelCamera('cam-estado-resultado');
+        function recusarItemEncontrado() {
+            itemEncontradoAtual = null;
+            iniciarCamera(); // liga a câmera de novo e retoma a busca automática
         }
 
         carregarDadosDaPlanilha();
