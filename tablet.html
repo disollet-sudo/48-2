@@ -96,7 +96,6 @@
                 <p class="text-xs text-gray-500 mt-1">Aponte a câmera para o item. Assim que a IA reconhecer com confiança, o item aparece automaticamente pra você confirmar.</p>
             </div>
 
-            <!-- ESTADO 1: BOTÃO PARA LIGAR A CÂMERA -->
             <div id="cam-estado-inicial" class="text-center py-10">
                 <div class="text-6xl mb-4">📷</div>
                 <button onclick="iniciarCamera()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 px-8 rounded-xl text-base shadow-lg active:scale-95 transition">
@@ -105,7 +104,6 @@
                 <p class="text-[11px] text-gray-400 mt-3 font-mono">A câmera só liga quando você tocar aqui.</p>
             </div>
 
-            <!-- ESTADO 2: PREVIEW AO VIVO -->
             <div id="cam-estado-preview" class="hidden text-center">
                 <div class="relative rounded-xl overflow-hidden bg-black mx-auto max-w-md">
                     <video id="cam-video" autoplay playsinline muted class="w-full h-auto"></video>
@@ -124,14 +122,12 @@
                 <p class="text-[11px] text-gray-400 mt-3 font-mono">A busca automática acontece sozinha. Só toque em "Capturar Agora" se quiser forçar uma análise imediata.</p>
             </div>
 
-            <!-- ESTADO 3: ANALISANDO -->
             <div id="cam-estado-analisando" class="hidden text-center py-14">
                 <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mx-auto mb-4"></div>
                 <p class="text-gray-600 font-bold text-sm">Analisando imagem...</p>
                 <p id="cam-analisando-detalhe" class="text-gray-400 text-xs font-mono mt-1">Preparando o reconhecimento</p>
             </div>
 
-            <!-- ESTADO 4: CONFIRMAÇÃO DO ITEM ENCONTRADO -->
             <div id="cam-estado-confirmar" class="hidden text-center py-4">
                 <p class="text-sm font-bold text-gray-800 mb-4">A IA encontrou este item:</p>
                 <div class="flex items-center justify-center gap-4 mb-2">
@@ -404,7 +400,6 @@
             }
         }
 
-        // AJUSTE REALIZADO: padEnd para manter os dígitos do código nas posições corretas (0-2 para linha)
         function extrairPartesCodigo(codigo) {
             const c = String(codigo || '').trim().padEnd(13, '0');
             return {
@@ -540,7 +535,7 @@
                     <td class="p-3 font-semibold text-gray-800 uppercase whitespace-normal break-words">${reg.descricao || 'ENTRADA DE MATERIAL'}</td>
                     <td class="p-3 text-right font-bold text-emerald-600 whitespace-nowrap">+${reg.quantidade} un</td>
                     <td class="p-3 text-center whitespace-nowrap">
-                        ${reg.linha ? `<button onclick="abrirEdicaoRegistro(${idx})" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold px-3 py-1.5 rounded-lg text-[11px] transition">✏️ Corrigir</button>` : ''}
+                        <button onclick="abrirEdicaoRegistro(${idx})" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold px-3 py-1.5 rounded-lg text-[11px] transition">✏️ Corrigir</button>
                     </td>
                 `;
                 corpoTabela.appendChild(tr);
@@ -549,7 +544,7 @@
 
         function abrirEdicaoRegistro(idx) {
             const reg = registrosRenderizadosAtual[idx];
-            if (!reg || !reg.linha) return;
+            if (!reg) return;
 
             registroEmEdicao = reg;
             produtoCorrigidoSelecionado = null;
@@ -669,7 +664,7 @@
                     method: "POST",
                     body: JSON.stringify({
                         action: "editarRegistroEntrada",
-                        linha: registroEmEdicao.linha,
+                        linha: registroEmEdicao.linha !== undefined ? registroEmEdicao.linha : registroEmEdicao.id,
                         novoCodigo: produtoCorrigidoSelecionado.codigo,
                         novaQuantidade: novaQuantidade
                     })
