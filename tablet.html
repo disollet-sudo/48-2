@@ -51,15 +51,10 @@
                     <p class="text-xs text-gray-400 font-mono">Status: Sincronizado em tempo real (15s)</p>
                 </div>
 
-                <!-- CAMPO DE BUSCA DIRETA -->
-                <div class="w-full md:w-72">
-                    <input type="text" id="input-busca-grade" oninput="filtrarPorTextoGrade()" placeholder="🔍 Buscar por código ou nome..." class="w-full bg-white border border-gray-300 text-gray-800 text-xs rounded-xl p-2.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                </div>
-
                 <!-- FILTROS POR COLEÇÃO (2 NÍVEIS: LINHA -> PEÇA) -->
-                <div class="flex flex-col items-end gap-1.5 w-full md:w-auto">
+                <div class="flex flex-col items-end gap-1.5">
 
-                    <!-- CHIP DA LINHA SELECIONADA (aparece só quando um nível 2 está aberto) -->
+                    <!-- CHIP DA LINHA SELECIONADA -->
                     <div id="chip-linha-selecionada" class="hidden">
                         <button onclick="resetarFiltros()" type="button" class="btn-filtro-ativo animate-pulse text-[11px] font-semibold px-2.5 py-1 rounded-full border border-emerald-600 shadow-sm transition">
                             ✕ <span id="chip-linha-texto"></span>
@@ -79,7 +74,7 @@
                         <button data-linha="04" onclick="selecionarLinha('04', this)" class="btn-filtro-linha text-[11px] font-semibold px-2.5 py-1 rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100">New Tropical (04)</button>
                     </div>
 
-                    <!-- NÍVEL 2: PEÇAS DA LINHA SELECIONADA (some/aparece conforme o nível 1) -->
+                    <!-- NÍVEL 2: PEÇAS DA LINHA SELECIONADA -->
                     <div id="bar-filtros-peca" class="hidden flex flex-wrap justify-end gap-1.5">
                         <button data-peca="" onclick="filtrarPeca('', this)" class="btn-filtro-peca btn-filtro-ativo text-[11px] font-semibold px-2.5 py-1 rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100">Todos desta linha</button>
                         <button data-peca="01" onclick="filtrarPeca('01', this)" class="btn-filtro-peca text-[11px] font-semibold px-2.5 py-1 rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100">🔪 Faca</button>
@@ -110,7 +105,7 @@
                 <p class="text-[11px] text-gray-400 mt-3 font-mono">A câmera só liga quando você tocar aqui.</p>
             </div>
 
-            <!-- ESTADO 2: PREVIEW AO VIVO COM BUSCA AUTOMÁTICA -->
+            <!-- ESTADO 2: PREVIEW AO VIVO -->
             <div id="cam-estado-preview" class="hidden text-center">
                 <div class="relative rounded-xl overflow-hidden bg-black mx-auto max-w-md">
                     <video id="cam-video" autoplay playsinline muted class="w-full h-auto"></video>
@@ -129,7 +124,7 @@
                 <p class="text-[11px] text-gray-400 mt-3 font-mono">A busca automática acontece sozinha. Só toque em "Capturar Agora" se quiser forçar uma análise imediata.</p>
             </div>
 
-            <!-- ESTADO 3: ANALISANDO (usado na captura manual) -->
+            <!-- ESTADO 3: ANALISANDO -->
             <div id="cam-estado-analisando" class="hidden text-center py-14">
                 <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mx-auto mb-4"></div>
                 <p class="text-gray-600 font-bold text-sm">Analisando imagem...</p>
@@ -216,7 +211,6 @@
                 </div>
 
                 <div class="p-5 space-y-4">
-                    <!-- Registro original -->
                     <div class="bg-gray-50 border border-gray-200 rounded-xl p-3">
                         <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Lançamento original (será estornado do estoque)</p>
                         <div class="flex items-center gap-2 text-sm">
@@ -226,7 +220,6 @@
                         <p class="text-xs text-gray-500 mt-1">Quantidade lançada: <span id="edit-original-quantidade" class="font-bold text-red-500"></span></p>
                     </div>
 
-                    <!-- Seleção do item correto -->
                     <div>
                         <label class="text-xs font-bold text-gray-600 block mb-1">Item correto:</label>
                         <div id="edit-produto-selecionado" class="hidden items-center gap-3 bg-emerald-50 border border-emerald-300 rounded-xl p-3 mb-2">
@@ -241,7 +234,6 @@
                         <div id="edit-resultados-produto" class="mt-2 max-h-48 overflow-y-auto divide-y divide-gray-100 border border-gray-100 rounded-lg hidden"></div>
                     </div>
 
-                    <!-- Quantidade correta -->
                     <div>
                         <label class="text-xs font-bold text-gray-600 block mb-1">Quantidade correta:</label>
                         <input id="edit-nova-quantidade" type="number" min="1" inputmode="numeric" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-2xl font-mono font-bold rounded-lg p-3 text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
@@ -294,8 +286,8 @@
                 <button onclick="digitarNumero('8')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">8</button>
                 <button onclick="digitarNumero('9')" class="bg-white py-5 text-2xl font-bold active:bg-gray-200">9</button>
                 <button onclick="apagarUltimo()" class="bg-gray-100 text-gray-700 py-5 text-xl">⌫</button>
+                <button onclick="limparVisor()" class="col-span-2 bg-red-50 text-red-600 font-bold py-5 text-lg">C</button>
                 <button onclick="digitarNumero('0')" class="col-span-2 bg-white py-5 text-2xl font-bold active:bg-gray-200">0</button>
-                <button onclick="limparVisor()" class="bg-red-50 text-red-600 font-bold py-5 text-lg">C</button>
             </div>
             <div class="border-t border-gray-200">
                 <button onclick="salvarEntradaEstoque()" class="w-full bg-emerald-600 text-white font-bold py-5 text-xl">Enviar</button>
@@ -305,7 +297,7 @@
     </main>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbzGEpk_7tOBgNmYaxZdCjtQRiSZ1aaw6T9jwDVe7A4Q1vUL-zwcp7-SHo6OIS6-3o2jhg/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbzDPaPMm-vhKOXm-lk3H1hxdHVIGvnDyRyCrpJVeXOPrZBL8S9xQ0w8r6Gw2bjA5hffKw/exec";
 
         let modoAtual = 'grade';
         let produtoSelecionado = null;
@@ -317,14 +309,11 @@
         let logoCarregada = false;
         let filtroLinha = '';
         let filtroPeca = '';
-        let termoBuscaGrade = '';
 
-        // Estado do modal de edição/correção de lançamentos de entrada
         let registrosRenderizadosAtual = [];
         let registroEmEdicao = null;
         let produtoCorrigidoSelecionado = null;
 
-        // Tabela de nomes das linhas
         const NOMES_LINHA = {
             '14': 'Millenium', '38': 'Inova', '35': 'Prisma', '01': 'Paraty',
             '18': 'Durafio', '17': 'Versatile', '37': 'Utilidade', '04': 'New Tropical'
@@ -338,7 +327,6 @@
         }
         function hideLoading() { document.getElementById('loading-overlay').classList.add('hidden'); }
 
-        // CONVERSOR DE FOTO COM TRATAMENTO CORRETO DE URL/ID DO GOOGLE DRIVE
         function gerarUrlDrive(imagemId) {
             if (!imagemId) return '';
             let str = String(imagemId).trim();
@@ -376,10 +364,8 @@
                     renderizarGradeProdutos(modoAtual === 'estoque');
                 }
             } catch (error) {
-                console.error("Erro na sincronização automática.", error);
-            } finally { 
-                if (!silencioso) hideLoading(); 
-            }
+                console.error("Erro na sincronização automática.");
+            } finally { if (!silencioso) hideLoading(); }
         }
 
         function mudarModo(novoModo) {
@@ -418,32 +404,17 @@
             }
         }
 
-        // EXTRAÇÃO CORRIGIDA DOS DADOS DO CÓDIGO
+        // AJUSTE REALIZADO: padEnd para manter os dígitos do código nas posições corretas (0-2 para linha)
         function extrairPartesCodigo(codigo) {
-            let c = String(codigo || '').trim();
-            
-            // Ajusta códigos que perderam o zero inicial do Excel/Planilha (ex: "1010100" -> "01010100")
-            if (c.length === 7 || c.length === 9 || c.length === 12) {
-                c = '0' + c;
-            }
-
+            const c = String(codigo || '').trim().padEnd(13, '0');
             return {
                 linha: c.substring(0, 2),
                 peca: c.substring(2, 6),
-                cor: c.length >= 10 ? c.substring(8, 10) : ''
+                cor: c.substring(8, 10)
             };
         }
 
         function produtoCombinaComFiltro(prod) {
-            const cod = String(prod.codigo || '').toLowerCase();
-            const desc = String(prod.descricao || '').toLowerCase();
-
-            if (termoBuscaGrade) {
-                if (!cod.includes(termoBuscaGrade) && !desc.includes(termoBuscaGrade)) {
-                    return false;
-                }
-            }
-
             const partes = extrairPartesCodigo(prod.codigo);
             if (filtroLinha && partes.linha !== filtroLinha) return false;
             if (filtroPeca) {
@@ -454,11 +425,6 @@
                 }
             }
             return true;
-        }
-
-        function filtrarPorTextoGrade() {
-            termoBuscaGrade = document.getElementById('input-busca-grade').value.trim().toLowerCase();
-            renderizarGradeProdutos(modoAtual === 'estoque');
         }
 
         function selecionarLinha(codLinha, elementoBotao) {
@@ -527,7 +493,7 @@
                 card.innerHTML = `
                     <div class="h-32 bg-gray-50 flex items-center justify-center relative border-b border-gray-100 overflow-hidden">
                         ${urlImagem ? `
-                            <img src="${urlImagem}" class="w-full h-full object-cover" loading="lazy">
+                            <img src="${urlImagem}" class="w-full h-full object-cover">
                         ` : `
                             <div class="text-gray-400 font-bold text-[10px] text-center p-2">SEM FOTO<br>${prod.codigo}</div>
                         `}
@@ -580,8 +546,6 @@
                 corpoTabela.appendChild(tr);
             });
         }
-
-        // ===================== EDIÇÃO / CORREÇÃO DE LANÇAMENTO DE ENTRADA =====================
 
         function abrirEdicaoRegistro(idx) {
             const reg = registrosRenderizadosAtual[idx];
@@ -819,8 +783,6 @@
             }
         }
 
-        // ===================== RECONHECIMENTO DE ITEM POR FOTO (IA - Gemini) =====================
-
         let cameraStream = null;
         let buscaAutomaticaTimer = null;
         let buscaAutomaticaOcupada = false;
@@ -1000,7 +962,6 @@
             iniciarCamera();
         }
 
-        // Inicialização
         carregarDadosDaPlanilha();
 
         setInterval(() => {
