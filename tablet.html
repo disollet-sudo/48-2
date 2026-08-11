@@ -6,9 +6,6 @@
     <title>Painel Tablet - Di Solle</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Reconhecimento de imagem por IA: a foto é enviada pro backend (codigo.gs), que consulta a
-         API do Gemini (Google AI) comparando com o catálogo de produtos da aba "Produto" e devolve
-         os candidatos mais prováveis. Veja a função identificarProdutoPorFotoIA em codigo.gs. -->
     <style>
         .no-select { -webkit-user-select: none; user-select: none; }
         .btn-filtro-ativo { background-color: #059669 !important; color: #ffffff !important; border-color: #059669 !important; }
@@ -54,8 +51,13 @@
                     <p class="text-xs text-gray-400 font-mono">Status: Sincronizado em tempo real (15s)</p>
                 </div>
 
+                <!-- CAMPO DE BUSCA DIRETA -->
+                <div class="w-full md:w-72">
+                    <input type="text" id="input-busca-grade" oninput="filtrarPorTextoGrade()" placeholder="🔍 Buscar por código ou nome..." class="w-full bg-white border border-gray-300 text-gray-800 text-xs rounded-xl p-2.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+
                 <!-- FILTROS POR COLEÇÃO (2 NÍVEIS: LINHA -> PEÇA) -->
-                <div class="flex flex-col items-end gap-1.5">
+                <div class="flex flex-col items-end gap-1.5 w-full md:w-auto">
 
                     <!-- CHIP DA LINHA SELECIONADA (aparece só quando um nível 2 está aberto) -->
                     <div id="chip-linha-selecionada" class="hidden">
@@ -171,7 +173,6 @@
         </section>
 
         <!-- SEÇÃO REGISTROS -->
-
         <section id="tela-registros" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-gray-100">
                 <div>
@@ -203,7 +204,7 @@
             </div>
         </section>
 
-        <!-- MODAL DE EDIÇÃO DE REGISTRO (correção de item/quantidade errados) -->
+        <!-- MODAL DE EDIÇÃO DE REGISTRO -->
         <div id="modal-editar-entrada" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div class="p-5 border-b border-gray-100 flex items-start justify-between gap-3">
@@ -304,7 +305,7 @@
     </main>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbzDPaPMm-vhKOXm-lk3H1hxdHVIGvnDyRyCrpJVeXOPrZBL8S9xQ0w8r6Gw2bjA5hffKw/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbzGEpk_7tOBgNmYaxZdCjtQRiSZ1aaw6T9jwDVe7A4Q1vUL-zwcp7-SHo6OIS6-3o2jhg/exec";
 
         let modoAtual = 'grade';
         let produtoSelecionado = null;
@@ -316,13 +317,14 @@
         let logoCarregada = false;
         let filtroLinha = '';
         let filtroPeca = '';
+        let termoBuscaGrade = '';
 
         // Estado do modal de edição/correção de lançamentos de entrada
         let registrosRenderizadosAtual = [];
         let registroEmEdicao = null;
         let produtoCorrigidoSelecionado = null;
 
-        // Mesma tabela de nomes usada no backend (codigo.gs / decodificarCodigoInjetora)
+        // Tabela de nomes das linhas
         const NOMES_LINHA = {
             '14': 'Millenium', '38': 'Inova', '35': 'Prisma', '01': 'Paraty',
             '18': 'Durafio', '17': 'Versatile', '37': 'Utilidade', '04': 'New Tropical'
@@ -336,18 +338,16 @@
         }
         function hideLoading() { document.getElementById('loading-overlay').classList.add('hidden'); }
 
-        // CONVERSOR DE FOTO (Mesmo formato direto do seu código antigo)
+        // CONVERSOR DE FOTO COM TRATAMENTO CORRETO DE URL/ID DO GOOGLE DRIVE
         function gerarUrlDrive(imagemId) {
             if (!imagemId) return '';
             let str = String(imagemId).trim();
             if (!str) return '';
 
-            // Se for link completo do Drive, extrai o ID
             const match = str.match(/\/d\/([a-zA-Z0-9_-]+)/) || str.match(/id=([a-zA-Z0-9_-]+)/);
             if (match && match[1]) {
                 return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w400`;
             }
-            // Se for ID direto
             if (!str.startsWith('http')) {
                 return `https://drive.google.com/thumbnail?id=${str}&sz=w400`;
             }
@@ -376,12 +376,13 @@
                     renderizarGradeProdutos(modoAtual === 'estoque');
                 }
             } catch (error) {
-                console.error("Erro na sincronização automática.");
-            } finally { if (!silencioso) hideLoading(); }
+                console.error("Erro na sincronização automática.", error);
+            } finally { 
+                if (!silencioso) hideLoading(); 
+            }
         }
 
         function mudarModo(novoModo) {
-            // Se estava na tela de câmera e está saindo dela, desliga a câmera (economiza bateria/privacidade)
             if (modoAtual === 'camera' && novoModo !== 'camera') {
                 pararCamera();
             }
@@ -417,17 +418,32 @@
             }
         }
 
-        // Extrai as partes fixas do código (mesma regra do backend: linha=0-2, peça=2-6, cor=8-10)
+        // EXTRAÇÃO CORRIGIDA DOS DADOS DO CÓDIGO
         function extrairPartesCodigo(codigo) {
-            const c = String(codigo || '').trim().padStart(13, '0');
+            let c = String(codigo || '').trim();
+            
+            // Ajusta códigos que perderam o zero inicial do Excel/Planilha (ex: "1010100" -> "01010100")
+            if (c.length === 7 || c.length === 9 || c.length === 12) {
+                c = '0' + c;
+            }
+
             return {
                 linha: c.substring(0, 2),
                 peca: c.substring(2, 6),
-                cor: c.substring(8, 10)
+                cor: c.length >= 10 ? c.substring(8, 10) : ''
             };
         }
 
         function produtoCombinaComFiltro(prod) {
+            const cod = String(prod.codigo || '').toLowerCase();
+            const desc = String(prod.descricao || '').toLowerCase();
+
+            if (termoBuscaGrade) {
+                if (!cod.includes(termoBuscaGrade) && !desc.includes(termoBuscaGrade)) {
+                    return false;
+                }
+            }
+
             const partes = extrairPartesCodigo(prod.codigo);
             if (filtroLinha && partes.linha !== filtroLinha) return false;
             if (filtroPeca) {
@@ -440,10 +456,13 @@
             return true;
         }
 
-        // NÍVEL 1: clicar numa linha (Millenium, Prisma, Paraty...) seleciona e abre o nível 2 (peças)
+        function filtrarPorTextoGrade() {
+            termoBuscaGrade = document.getElementById('input-busca-grade').value.trim().toLowerCase();
+            renderizarGradeProdutos(modoAtual === 'estoque');
+        }
+
         function selecionarLinha(codLinha, elementoBotao) {
             if (filtroLinha === codLinha) {
-                // Clicar de novo na linha já ativa recolhe o nível 2 e volta pro nível 1
                 resetarFiltros();
                 return;
             }
@@ -464,7 +483,6 @@
             renderizarGradeProdutos(modoAtual === 'estoque');
         }
 
-        // NÍVEL 2: filtra por tipo de peça (Faca, Garfo, Colher, Chá, Espátula) dentro da linha selecionada
         function filtrarPeca(prefixoPeca, elementoBotao) {
             filtroPeca = prefixoPeca;
             document.querySelectorAll('.btn-filtro-peca').forEach(btn => btn.classList.remove('btn-filtro-ativo'));
@@ -472,7 +490,6 @@
             renderizarGradeProdutos(modoAtual === 'estoque');
         }
 
-        // Recolhe o nível 2 e volta a mostrar todas as linhas, sem nenhum filtro ativo
         function resetarFiltros() {
             filtroLinha = '';
             filtroPeca = '';
@@ -510,7 +527,7 @@
                 card.innerHTML = `
                     <div class="h-32 bg-gray-50 flex items-center justify-center relative border-b border-gray-100 overflow-hidden">
                         ${urlImagem ? `
-                            <img src="${urlImagem}" class="w-full h-full object-cover">
+                            <img src="${urlImagem}" class="w-full h-full object-cover" loading="lazy">
                         ` : `
                             <div class="text-gray-400 font-bold text-[10px] text-center p-2">SEM FOTO<br>${prod.codigo}</div>
                         `}
@@ -544,7 +561,6 @@
             }
 
             mensagemVazio.classList.add('hidden');
-
             registrosRenderizadosAtual = registrosFiltrados;
 
             registrosFiltrados.forEach((reg, idx) => {
@@ -584,7 +600,6 @@
             document.getElementById('edit-nova-quantidade').value = reg.quantidade;
             document.getElementById('edit-erro').classList.add('hidden');
 
-            // Pré-seleciona o mesmo item do registro original (o usuário só troca se realmente errou o item)
             const produtoOriginal = PRODUTOS_PLANILHA.find(p => String(p.codigo).trim() === String(reg.codigo).trim());
             if (produtoOriginal) {
                 selecionarProdutoEdicao(produtoOriginal.codigo);
@@ -725,16 +740,12 @@
             mudarModo('calculadora');
         }
 
-        // Atualiza o número grande sendo digitado
         function digitarNumero(num) {
             if (valorVisor === '0') valorVisor = num;
             else if (valorVisor.length < 7) valorVisor += num;
             atualizarVisorCalculadora();
         }
 
-        // Apaga o último dígito digitado. Se não há nada digitado (visor em 0)
-        // e já existe uma caixa somada, "desfaz" a última caixa trazendo o valor
-        // dela de volta pro visor para o usuário corrigir.
         function apagarUltimo() {
             if (valorVisor.length > 1) {
                 valorVisor = valorVisor.slice(0, -1);
@@ -746,20 +757,17 @@
             atualizarVisorCalculadora();
         }
 
-        // "C" limpa só o número que está sendo digitado no momento
         function limparVisor() {
             valorVisor = '0';
             atualizarVisorCalculadora();
         }
 
-        // Limpa tudo: número atual + todas as caixas já somadas
         function limparTudo() {
             valorVisor = '0';
             caixasDigitadas = [];
             atualizarVisorCalculadora();
         }
 
-        // Botão "+" grande: registra o número digitado como uma caixa e soma no total
         function adicionarCaixa() {
             const valor = parseInt(valorVisor);
             if (!valor || valor <= 0) return;
@@ -780,7 +788,6 @@
         }
 
         async function salvarEntradaEstoque() {
-            // Se o usuário digitou um número e esqueceu de apertar "+", soma ele também
             const pendente = parseInt(valorVisor);
             if (pendente > 0) {
                 caixasDigitadas.push(pendente);
@@ -813,19 +820,14 @@
         }
 
         // ===================== RECONHECIMENTO DE ITEM POR FOTO (IA - Gemini) =====================
-        // A câmera fica ligada e, sozinha, tira "fotos" do frame atual a cada poucos segundos e manda
-        // pro backend (codigo.gs -> ação "reconhecerFotoIA"), que consulta a IA do Gemini e devolve o
-        // melhor candidato encontrado no catálogo de produtos. Quando a confiança é alta o suficiente,
-        // a busca automática para e mostra o item pra confirmação — sem precisar apertar "Capturar".
-        // Também dá pra forçar uma análise imediata a qualquer momento com o botão "Capturar Agora".
 
         let cameraStream = null;
         let buscaAutomaticaTimer = null;
         let buscaAutomaticaOcupada = false;
         let itemEncontradoAtual = null;
 
-        const INTERVALO_BUSCA_AUTOMATICA_MS = 1800; // de quanto em quanto tempo tenta reconhecer sozinho
-        const CONFIANCA_MINIMA_AUTOMATICA = 0.75;   // confiança mínima (75%) pra aceitar sem precisar apertar nada
+        const INTERVALO_BUSCA_AUTOMATICA_MS = 1800;
+        const CONFIANCA_MINIMA_AUTOMATICA = 0.75;
 
         function mostrarPainelCamera(nome) {
             ['cam-estado-inicial', 'cam-estado-preview', 'cam-estado-analisando', 'cam-estado-confirmar', 'cam-erro']
@@ -849,7 +851,7 @@
 
         async function iniciarCamera() {
             itemEncontradoAtual = null;
-            mostrarPainelCamera('cam-estado-inicial'); // evita "piscar" resultado antigo enquanto pede permissão
+            mostrarPainelCamera('cam-estado-inicial');
             try {
                 cameraStream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 720 } },
@@ -892,12 +894,10 @@
             }
         }
 
-        // Roda sozinho em loop enquanto a tela de câmera estiver aberta: tira o frame atual do
-        // vídeo e consulta a IA. Se achar algo com confiança alta, para o loop e mostra a confirmação.
         async function tentarReconhecimentoAutomatico() {
-            if (buscaAutomaticaOcupada) return; // não empilha chamadas se a anterior ainda não voltou
+            if (buscaAutomaticaOcupada) return;
             const video = document.getElementById('cam-video');
-            if (!video || !video.videoWidth) return; // câmera ainda carregando
+            if (!video || !video.videoWidth) return;
 
             buscaAutomaticaOcupada = true;
             try {
@@ -925,7 +925,6 @@
             }
         }
 
-        // Captura manual: força uma análise imediata do frame atual, independente da busca automática
         async function capturarFoto() {
             pararBuscaAutomatica();
 
@@ -952,8 +951,6 @@
             }
         }
 
-        // Envia o frame pro backend (codigo.gs), que consulta a IA do Gemini e devolve o melhor
-        // candidato (já cruzado com código/descrição/foto da aba "Produto"), ou null se não achou nada.
         async function consultarReconhecimentoIA(canvas) {
             const dataUrlFoto = canvas.toDataURL('image/jpeg', 0.85);
 
@@ -1000,9 +997,10 @@
 
         function recusarItemEncontrado() {
             itemEncontradoAtual = null;
-            iniciarCamera(); // liga a câmera de novo e retoma a busca automática
+            iniciarCamera();
         }
 
+        // Inicialização
         carregarDadosDaPlanilha();
 
         setInterval(() => {
