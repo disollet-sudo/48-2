@@ -192,6 +192,7 @@
                             <th class="p-3 w-36">Código</th>
                             <th class="p-3">Descrição do Item</th>
                             <th class="p-3 text-right text-emerald-600 w-32">Qtd Entrou</th>
+                            <th class="p-3 text-center w-24">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="tabela-registros-corpo" class="divide-y divide-gray-100"></tbody>
@@ -201,6 +202,59 @@
                 </div>
             </div>
         </section>
+
+        <!-- MODAL DE EDIÇÃO DE REGISTRO (correção de item/quantidade errados) -->
+        <div id="modal-editar-entrada" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <div class="p-5 border-b border-gray-100 flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">✏️ Corrigir Lançamento</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">Ao trocar o item, o sistema estorna a quantidade do item errado e lança no item certo automaticamente.</p>
+                    </div>
+                    <button onclick="fecharModalEdicao()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                </div>
+
+                <div class="p-5 space-y-4">
+                    <!-- Registro original -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Lançamento original (será estornado do estoque)</p>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span id="edit-original-codigo" class="font-mono font-bold text-gray-700 bg-gray-200 px-2 py-0.5 rounded text-xs"></span>
+                            <span id="edit-original-descricao" class="font-bold text-gray-800 uppercase text-xs flex-1"></span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Quantidade lançada: <span id="edit-original-quantidade" class="font-bold text-red-500"></span></p>
+                    </div>
+
+                    <!-- Seleção do item correto -->
+                    <div>
+                        <label class="text-xs font-bold text-gray-600 block mb-1">Item correto:</label>
+                        <div id="edit-produto-selecionado" class="hidden items-center gap-3 bg-emerald-50 border border-emerald-300 rounded-xl p-3 mb-2">
+                            <div id="edit-produto-selecionado-foto" class="w-12 h-12 bg-white rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0"></div>
+                            <div class="flex-1 min-w-0">
+                                <span id="edit-produto-selecionado-codigo" class="text-[10px] font-mono text-gray-500 font-bold block"></span>
+                                <span id="edit-produto-selecionado-descricao" class="text-xs font-bold text-gray-800 uppercase block leading-tight"></span>
+                            </div>
+                            <button onclick="limparProdutoSelecionadoEdicao()" class="text-emerald-700 hover:text-emerald-900 text-xs font-bold underline flex-shrink-0">Trocar</button>
+                        </div>
+                        <input id="edit-busca-produto" type="text" placeholder="Buscar por código ou descrição..." oninput="filtrarProdutosEdicao()" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-sm rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <div id="edit-resultados-produto" class="mt-2 max-h-48 overflow-y-auto divide-y divide-gray-100 border border-gray-100 rounded-lg hidden"></div>
+                    </div>
+
+                    <!-- Quantidade correta -->
+                    <div>
+                        <label class="text-xs font-bold text-gray-600 block mb-1">Quantidade correta:</label>
+                        <input id="edit-nova-quantidade" type="number" min="1" inputmode="numeric" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-2xl font-mono font-bold rounded-lg p-3 text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    </div>
+
+                    <p id="edit-erro" class="hidden text-red-500 text-xs font-bold bg-red-50 border border-red-200 rounded-lg p-2"></p>
+                </div>
+
+                <div class="p-5 border-t border-gray-100 flex gap-3">
+                    <button onclick="fecharModalEdicao()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 rounded-xl text-sm transition">Cancelar</button>
+                    <button onclick="salvarEdicaoRegistro()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-sm transition">Salvar Correção</button>
+                </div>
+            </div>
+        </div>
 
         <!-- TELA CALCULADORA -->
         <section id="tela-calculadora" class="hidden max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden mt-2">
@@ -262,6 +316,11 @@
         let logoCarregada = false;
         let filtroLinha = '';
         let filtroPeca = '';
+
+        // Estado do modal de edição/correção de lançamentos de entrada
+        let registrosRenderizadosAtual = [];
+        let registroEmEdicao = null;
+        let produtoCorrigidoSelecionado = null;
 
         // Mesma tabela de nomes usada no backend (codigo.gs / decodificarCodigoInjetora)
         const NOMES_LINHA = {
@@ -486,7 +545,9 @@
 
             mensagemVazio.classList.add('hidden');
 
-            registrosFiltrados.forEach(reg => {
+            registrosRenderizadosAtual = registrosFiltrados;
+
+            registrosFiltrados.forEach((reg, idx) => {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-gray-50 transition border-b border-gray-100 text-xs font-mono";
                 const formatData = new Date(reg.dataHora).toLocaleString('pt-BR');
@@ -496,9 +557,158 @@
                     <td class="p-3 font-bold text-gray-700 whitespace-nowrap">${reg.codigo}</td>
                     <td class="p-3 font-semibold text-gray-800 uppercase whitespace-normal break-words">${reg.descricao || 'ENTRADA DE MATERIAL'}</td>
                     <td class="p-3 text-right font-bold text-emerald-600 whitespace-nowrap">+${reg.quantidade} un</td>
+                    <td class="p-3 text-center whitespace-nowrap">
+                        ${reg.linha ? `<button onclick="abrirEdicaoRegistro(${idx})" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold px-3 py-1.5 rounded-lg text-[11px] transition">✏️ Corrigir</button>` : ''}
+                    </td>
                 `;
                 corpoTabela.appendChild(tr);
             });
+        }
+
+        // ===================== EDIÇÃO / CORREÇÃO DE LANÇAMENTO DE ENTRADA =====================
+
+        function abrirEdicaoRegistro(idx) {
+            const reg = registrosRenderizadosAtual[idx];
+            if (!reg || !reg.linha) return;
+
+            registroEmEdicao = reg;
+            produtoCorrigidoSelecionado = null;
+
+            document.getElementById('edit-original-codigo').innerText = reg.codigo;
+            document.getElementById('edit-original-descricao').innerText = reg.descricao || 'ENTRADA DE MATERIAL';
+            document.getElementById('edit-original-quantidade').innerText = `+${reg.quantidade} un`;
+
+            document.getElementById('edit-busca-produto').value = '';
+            document.getElementById('edit-resultados-produto').innerHTML = '';
+            document.getElementById('edit-resultados-produto').classList.add('hidden');
+            document.getElementById('edit-nova-quantidade').value = reg.quantidade;
+            document.getElementById('edit-erro').classList.add('hidden');
+
+            // Pré-seleciona o mesmo item do registro original (o usuário só troca se realmente errou o item)
+            const produtoOriginal = PRODUTOS_PLANILHA.find(p => String(p.codigo).trim() === String(reg.codigo).trim());
+            if (produtoOriginal) {
+                selecionarProdutoEdicao(produtoOriginal.codigo);
+            } else {
+                document.getElementById('edit-produto-selecionado').classList.add('hidden');
+                document.getElementById('edit-produto-selecionado').classList.remove('flex');
+            }
+
+            document.getElementById('modal-editar-entrada').classList.remove('hidden');
+        }
+
+        function fecharModalEdicao() {
+            document.getElementById('modal-editar-entrada').classList.add('hidden');
+            registroEmEdicao = null;
+            produtoCorrigidoSelecionado = null;
+        }
+
+        function filtrarProdutosEdicao() {
+            const termo = document.getElementById('edit-busca-produto').value.trim().toLowerCase();
+            const container = document.getElementById('edit-resultados-produto');
+
+            if (!termo) {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+                return;
+            }
+
+            const resultados = PRODUTOS_PLANILHA.filter(p =>
+                String(p.codigo).toLowerCase().includes(termo) ||
+                String(p.descricao).toLowerCase().includes(termo)
+            ).slice(0, 30);
+
+            if (resultados.length === 0) {
+                container.innerHTML = `<div class="p-3 text-xs text-gray-400 text-center">Nenhum item encontrado.</div>`;
+                container.classList.remove('hidden');
+                return;
+            }
+
+            container.innerHTML = resultados.map(p => `
+                <div onclick="selecionarProdutoEdicao('${String(p.codigo).replace(/'/g, "\\'")}')" class="flex items-center gap-3 p-2 hover:bg-emerald-50 cursor-pointer">
+                    <span class="text-[10px] font-mono text-gray-400 font-bold w-24 flex-shrink-0">${p.codigo}</span>
+                    <span class="text-xs font-bold text-gray-700 uppercase flex-1">${p.descricao}</span>
+                </div>
+            `).join('');
+            container.classList.remove('hidden');
+        }
+
+        function selecionarProdutoEdicao(codigo) {
+            const produto = PRODUTOS_PLANILHA.find(p => String(p.codigo).trim() === String(codigo).trim());
+            if (!produto) return;
+
+            produtoCorrigidoSelecionado = produto;
+
+            const bloco = document.getElementById('edit-produto-selecionado');
+            bloco.classList.remove('hidden');
+            bloco.classList.add('flex');
+
+            const urlImg = gerarUrlDrive(produto.imagemId);
+            document.getElementById('edit-produto-selecionado-foto').innerHTML = urlImg
+                ? `<img src="${urlImg}" class="w-full h-full object-cover">`
+                : `<div class="text-gray-400 font-bold text-[8px] text-center">SEM FOTO</div>`;
+            document.getElementById('edit-produto-selecionado-codigo').innerText = produto.codigo;
+            document.getElementById('edit-produto-selecionado-descricao').innerText = produto.descricao;
+
+            document.getElementById('edit-busca-produto').value = '';
+            document.getElementById('edit-resultados-produto').innerHTML = '';
+            document.getElementById('edit-resultados-produto').classList.add('hidden');
+        }
+
+        function limparProdutoSelecionadoEdicao() {
+            produtoCorrigidoSelecionado = null;
+            const bloco = document.getElementById('edit-produto-selecionado');
+            bloco.classList.add('hidden');
+            bloco.classList.remove('flex');
+            document.getElementById('edit-busca-produto').focus();
+        }
+
+        function mostrarErroEdicao(msg) {
+            const el = document.getElementById('edit-erro');
+            el.innerText = msg;
+            el.classList.remove('hidden');
+        }
+
+        async function salvarEdicaoRegistro() {
+            if (!registroEmEdicao) return;
+
+            document.getElementById('edit-erro').classList.add('hidden');
+
+            if (!produtoCorrigidoSelecionado) {
+                mostrarErroEdicao('Selecione o item correto antes de salvar.');
+                return;
+            }
+
+            const novaQuantidade = parseInt(document.getElementById('edit-nova-quantidade').value) || 0;
+            if (novaQuantidade <= 0) {
+                mostrarErroEdicao('Informe uma quantidade válida (maior que zero).');
+                return;
+            }
+
+            showLoading("Corrigindo lançamento e ajustando o estoque...");
+            try {
+                const resposta = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "editarRegistroEntrada",
+                        linha: registroEmEdicao.linha,
+                        novoCodigo: produtoCorrigidoSelecionado.codigo,
+                        novaQuantidade: novaQuantidade
+                    })
+                });
+                const resultado = await resposta.json();
+
+                if (!resultado.success) {
+                    hideLoading();
+                    mostrarErroEdicao(resultado.error || "Não foi possível corrigir o lançamento.");
+                    return;
+                }
+
+                fecharModalEdicao();
+                await carregarDadosDaPlanilha();
+            } catch (err) {
+                hideLoading();
+                mostrarErroEdicao("Erro de conexão ao corrigir o lançamento.");
+            }
         }
 
         function abrirCalculadora(produto) {
