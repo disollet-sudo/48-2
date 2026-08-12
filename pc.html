@@ -20,6 +20,10 @@
             <span class="animate-pulse text-gray-400">Carregando Logo...</span>
         </div>
         <div class="flex items-center space-x-3">
+            <button onclick="abrirDescarte()" class="text-xs font-mono bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-md border border-red-800 text-red-400 font-bold transition flex items-center space-x-1 cursor-pointer">
+                <span>🗑️ Descarte de Peças</span>
+            </button>
+
             <button onclick="abrirRegistros()" class="text-xs font-mono bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-md border border-slate-700 text-sky-400 font-bold transition flex items-center space-x-1 cursor-pointer">
                 <span>📋 Ver Registros</span>
             </button>
@@ -146,6 +150,7 @@
                             <th class="p-2 text-right">Total</th>
                             <th class="p-2">Observação</th>
                             <th class="p-2 text-center">Editar</th>
+                            <th class="p-2 text-center">Excluir</th>
                         </tr>
                     </thead>
                     <tbody id="tabela-registros" class="divide-y divide-slate-800"></tbody>
@@ -168,8 +173,8 @@
             </p>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto</label>
-                    <input type="text" id="manual-codigo" placeholder="Digite o código..." autocomplete="off" class="w-full bg-slate-950 border-2 border-indigo-500 rounded-lg p-3 text-lg font-mono text-indigo-300 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto (Máx. 13 Dígitos)</label>
+                    <input type="text" id="manual-codigo" maxlength="13" placeholder="Digite o código..." autocomplete="off" class="w-full bg-slate-950 border-2 border-indigo-500 rounded-lg p-3 text-lg font-mono text-indigo-300 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400">
                 </div>
                 <div>
                     <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Quantidade Total de Unidades</label>
@@ -188,6 +193,38 @@
         </div>
     </div>
 
+    <!-- MODAL: DESCARTE DE PEÇAS -->
+    <div id="modal-descarte" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-red-600 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-red-400 font-mono">🗑️ Descarte de Peças</h3>
+                <button onclick="fecharDescarte()" class="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+            </div>
+            <p class="text-[11px] text-slate-500 font-mono mb-4 leading-relaxed">
+                Lançamento manual, por unidade (peça a peça), sem seguir regras de caixa/embalagem. A quantidade informada é baixada diretamente do estoque do código digitado e registrada separadamente como "DESCARTE".
+            </p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto (Máx. 13 Dígitos)</label>
+                    <input type="text" id="descarte-codigo" maxlength="13" placeholder="Digite o código..." autocomplete="off" class="w-full bg-slate-950 border-2 border-red-500 rounded-lg p-3 text-lg font-mono text-red-300 font-bold focus:outline-none focus:ring-2 focus:ring-red-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Quantidade de Peças (Unidades)</label>
+                    <input type="number" id="descarte-quantidade" min="1" placeholder="Ex: 3" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-lg font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Motivo do Descarte (opcional)</label>
+                    <input type="text" id="descarte-observacao" placeholder="Ex: peça quebrada, defeito..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm font-mono text-slate-200 focus:outline-none focus:border-red-500">
+                </div>
+                <div id="descarte-status" class="text-xs font-mono text-slate-400 hidden"></div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button onclick="fecharDescarte()" class="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300">Cancelar</button>
+                    <button onclick="salvarDescarte()" class="px-4 py-2 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-500 text-white">Registrar Descarte</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: EDITAR REGISTRO INDIVIDUAL -->
     <div id="modal-editar" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-md shadow-2xl">
@@ -197,11 +234,19 @@
             </div>
             <div class="p-4 space-y-4">
                 <div>
-                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto</label>
-                    <input type="text" id="edit-codigo" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm font-mono text-emerald-400 font-bold focus:outline-none focus:border-emerald-500">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Modo de Lançamento</label>
+                    <div class="flex space-x-2">
+                        <button type="button" id="edit-modo-caixa-btn" onclick="selecionarModoEdicao('caixa')" class="flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-emerald-500 bg-emerald-600 text-white transition">📦 Por Caixa (regras)</button>
+                        <button type="button" id="edit-modo-manual-btn" onclick="selecionarModoEdicao('manual')" class="flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-slate-700 bg-slate-800 text-slate-300 transition">✍️ Manual (unidades)</button>
+                    </div>
+                    <p class="text-[10px] text-slate-500 font-mono mt-1">Caixa: segue as regras de desmembramento (igual à bipagem normal). Manual: baixa direta por unidade, ignora regras.</p>
                 </div>
                 <div>
-                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Qtd de Caixas</label>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto</label>
+                    <input type="text" id="edit-codigo" maxlength="13" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm font-mono text-emerald-400 font-bold focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1" id="edit-caixas-label">Qtd de Caixas</label>
                     <input type="number" id="edit-caixas" min="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm font-mono text-amber-400 font-bold focus:outline-none focus:border-amber-500">
                 </div>
                 <div>
@@ -218,7 +263,7 @@
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbwCZiLCrCMbpm5EILgS3bjA_DUY9QX50egKkQuETuVFWgs8foX3PZgX2KqvsAZA0y6IAg/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbzBR8C-HePGnAdhlSJpMF_22zwCr0Oxbm9rVtgMxWuBKF-0SCtPH7Z8InoSLLaNBBcEiA/exec";
 
         let MESA_ATUAL = localStorage.getItem('mesa_expedicao') || "MESA 01";
 
@@ -446,7 +491,8 @@
                 !e.target.closest('button') &&
                 !e.target.closest('#modal-registros') &&
                 !e.target.closest('#modal-editar') &&
-                !e.target.closest('#modal-manual')
+                !e.target.closest('#modal-manual') &&
+                !e.target.closest('#modal-descarte')
             ) {
                 campoCodigo.focus();
             }
@@ -496,6 +542,9 @@
                         <td class="p-2 text-center">
                             <button onclick='abrirEdicao(${JSON.stringify(reg)})' class="text-sky-400 hover:text-sky-300 text-sm" title="Corrigir este lançamento">✏️</button>
                         </td>
+                        <td class="p-2 text-center">
+                            <button onclick='excluirRegistro(${reg.linha})' class="text-red-400 hover:text-red-300 text-sm" title="Excluir este lançamento e estornar o estoque">🗑️</button>
+                        </td>
                     `;
                     tabelaRegistros.appendChild(tr);
                 });
@@ -510,12 +559,55 @@
             modalRegistros.classList.add('hidden');
         }
 
+        async function excluirRegistro(linha) {
+            if (!linha) return;
+            const confirmado = confirm("Tem certeza que deseja EXCLUIR este lançamento?\n\nO estoque será estornado automaticamente (a quantidade baixada volta para o saldo).");
+            if (!confirmado) return;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "excluirRegistroSaida", linha: linha })
+                });
+                const resultado = await response.json();
+
+                if (resultado.success) {
+                    await abrirRegistros();
+                    await carregarHistoricoDoDia();
+                } else {
+                    alert("❌ Erro ao excluir: " + (resultado.error || "não foi possível excluir."));
+                }
+            } catch (err) {
+                alert("❌ Erro de conexão ao excluir o registro.");
+            }
+        }
+
         const modalEditar = document.getElementById('modal-editar');
         const editCodigo = document.getElementById('edit-codigo');
         const editCaixas = document.getElementById('edit-caixas');
+        const editCaixasLabel = document.getElementById('edit-caixas-label');
         const editObservacao = document.getElementById('edit-observacao');
         const editStatus = document.getElementById('edit-status');
+        const editModoCaixaBtn = document.getElementById('edit-modo-caixa-btn');
+        const editModoManualBtn = document.getElementById('edit-modo-manual-btn');
         let linhaEmEdicao = null;
+        let modoEdicaoAtual = 'caixa';
+
+        function selecionarModoEdicao(modo) {
+            modoEdicaoAtual = modo;
+            const ativo = "flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-emerald-500 bg-emerald-600 text-white transition";
+            const inativo = "flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-slate-700 bg-slate-800 text-slate-300 transition";
+
+            if (modo === 'manual') {
+                editModoManualBtn.className = "flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-indigo-500 bg-indigo-600 text-white transition";
+                editModoCaixaBtn.className = inativo;
+                editCaixasLabel.innerText = "Quantidade Total de Unidades (Manual)";
+            } else {
+                editModoCaixaBtn.className = ativo;
+                editModoManualBtn.className = inativo;
+                editCaixasLabel.innerText = "Qtd de Caixas";
+            }
+        }
 
         function abrirEdicao(reg) {
             linhaEmEdicao = reg.linha;
@@ -523,6 +615,7 @@
             editCaixas.value = reg.caixas;
             editObservacao.value = reg.observacao || "";
             editStatus.classList.add('hidden');
+            selecionarModoEdicao('caixa');
             modalEditar.classList.remove('hidden');
         }
 
@@ -535,7 +628,7 @@
             if (!linhaEmEdicao) return;
 
             const novoCodigo = editCodigo.value.trim();
-            const novasCaixas = parseInt(editCaixas.value) || 1;
+            const novaQuantidade = parseInt(editCaixas.value) || 1;
             const novaObservacao = editObservacao.value.trim();
 
             if (!novoCodigo) {
@@ -552,8 +645,10 @@
                     body: JSON.stringify({
                         action: "editarRegistroSaida",
                         linha: linhaEmEdicao,
+                        modo: modoEdicaoAtual,
                         novoCodigo: novoCodigo,
-                        novasCaixas: novasCaixas,
+                        novasCaixas: novaQuantidade,
+                        novaQuantidade: novaQuantidade,
                         novaObservacao: novaObservacao
                     })
                 });
@@ -667,6 +762,83 @@
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     salvarLancamentoManual();
+                }
+            });
+        });
+
+        // ===================== DESCARTE DE PEÇAS =====================
+        const modalDescarte = document.getElementById('modal-descarte');
+        const descarteCodigo = document.getElementById('descarte-codigo');
+        const descarteQuantidade = document.getElementById('descarte-quantidade');
+        const descarteObservacao = document.getElementById('descarte-observacao');
+        const descarteStatus = document.getElementById('descarte-status');
+
+        function abrirDescarte() {
+            descarteCodigo.value = '';
+            descarteQuantidade.value = '';
+            descarteObservacao.value = '';
+            descarteStatus.classList.add('hidden');
+            modalDescarte.classList.remove('hidden');
+            setTimeout(() => descarteCodigo.focus(), 50);
+        }
+
+        function fecharDescarte() {
+            modalDescarte.classList.add('hidden');
+            setTimeout(() => campoCodigo.focus(), 50);
+        }
+
+        async function salvarDescarte() {
+            const codigo = descarteCodigo.value.trim();
+            const quantidade = parseInt(descarteQuantidade.value) || 0;
+            const observacao = descarteObservacao.value.trim() || "Descarte de peças";
+
+            if (!codigo) {
+                descarteStatus.classList.remove('hidden');
+                descarteStatus.innerHTML = '<span class="text-red-400">Informe um código válido.</span>';
+                descarteCodigo.focus();
+                return;
+            }
+            if (quantidade <= 0) {
+                descarteStatus.classList.remove('hidden');
+                descarteStatus.innerHTML = '<span class="text-red-400">Informe uma quantidade válida.</span>';
+                descarteQuantidade.focus();
+                return;
+            }
+
+            descarteStatus.classList.remove('hidden');
+            descarteStatus.innerText = "Registrando descarte...";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "registrarDescarte",
+                        codigo: codigo,
+                        quantidade: quantidade,
+                        observacao: observacao
+                    })
+                });
+                const resultado = await response.json();
+
+                if (resultado.success) {
+                    tocarBipe(true);
+                    descarteStatus.innerHTML = '<span class="text-emerald-400 font-bold">✅ Descarte registrado!</span>';
+                    setTimeout(() => {
+                        fecharDescarte();
+                    }, 700);
+                } else {
+                    throw new Error(resultado.error || "Não foi possível registrar o descarte.");
+                }
+            } catch (err) {
+                descarteStatus.innerHTML = `<span class="text-red-400 font-bold">❌ ${err.message || "Erro ao registrar."}</span>`;
+            }
+        }
+
+        [descarteCodigo, descarteQuantidade].forEach(campo => {
+            campo.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    salvarDescarte();
                 }
             });
         });
