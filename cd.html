@@ -242,6 +242,7 @@
                             <th class="p-2 text-right">Total</th>
                             <th class="p-2">Observação</th>
                             <th class="p-2 text-center">Editar</th>
+                            <th class="p-2 text-center">Excluir</th>
                         </tr>
                     </thead>
                     <tbody id="tabela-registros" class="divide-y divide-slate-800"></tbody>
@@ -264,8 +265,8 @@
             </p>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto</label>
-                    <input type="text" id="manual-codigo" placeholder="Digite o código..." autocomplete="off" class="w-full bg-slate-950 border-2 border-indigo-500 rounded-lg p-3 text-lg font-mono text-indigo-300 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto (Máx. 13 Dígitos)</label>
+                    <input type="text" id="manual-codigo" maxlength="13" placeholder="Digite o código..." autocomplete="off" class="w-full bg-slate-950 border-2 border-indigo-500 rounded-lg p-3 text-lg font-mono text-indigo-300 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400">
                 </div>
                 <div>
                     <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Quantidade Total de Unidades</label>
@@ -293,11 +294,19 @@
             </div>
             <div class="p-4 space-y-4">
                 <div>
-                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto</label>
-                    <input type="text" id="edit-codigo" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm font-mono text-emerald-400 font-bold focus:outline-none focus:border-emerald-500">
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Modo de Lançamento</label>
+                    <div class="flex space-x-2">
+                        <button type="button" id="edit-modo-caixa-btn" onclick="selecionarModoEdicao('caixa')" class="flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-emerald-500 bg-emerald-600 text-white transition">📦 Por Caixa (regras)</button>
+                        <button type="button" id="edit-modo-manual-btn" onclick="selecionarModoEdicao('manual')" class="flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-slate-700 bg-slate-800 text-slate-300 transition">✍️ Manual (unidades)</button>
+                    </div>
+                    <p class="text-[10px] text-slate-500 font-mono mt-1">Caixa: segue as regras de desmembramento (igual à bipagem normal). Manual: baixa direta por unidade, ignora regras.</p>
                 </div>
                 <div>
-                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Qtd de Caixas</label>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Código do Produto</label>
+                    <input type="text" id="edit-codigo" maxlength="13" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm font-mono text-emerald-400 font-bold focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1" id="edit-caixas-label">Qtd de Caixas</label>
                     <input type="number" id="edit-caixas" min="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm font-mono text-amber-400 font-bold focus:outline-none focus:border-amber-500">
                 </div>
                 <div>
@@ -314,7 +323,7 @@
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbwCZiLCrCMbpm5EILgS3bjA_DUY9QX50egKkQuETuVFWgs8foX3PZgX2KqvsAZA0y6IAg/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbzBR8C-HePGnAdhlSJpMF_22zwCr0Oxbm9rVtgMxWuBKF-0SCtPH7Z8InoSLLaNBBcEiA/exec";
 
         // A "mesa" do CD é sempre fixa como "CD" (não editável, diferente do pc.html)
         const MESA_ATUAL = "CD";
@@ -763,6 +772,9 @@
                         <td class="p-2 text-center">
                             <button onclick='abrirEdicao(${JSON.stringify(reg)})' class="text-sky-400 hover:text-sky-300 text-sm" title="Corrigir este lançamento">✏️</button>
                         </td>
+                        <td class="p-2 text-center">
+                            <button onclick='excluirRegistro(${reg.linha})' class="text-red-400 hover:text-red-300 text-sm" title="Excluir este lançamento e estornar o estoque">🗑️</button>
+                        </td>
                     `;
                     tabelaRegistros.appendChild(tr);
                 });
@@ -777,12 +789,55 @@
             modalRegistros.classList.add('hidden');
         }
 
+        async function excluirRegistro(linha) {
+            if (!linha) return;
+            const confirmado = confirm("Tem certeza que deseja EXCLUIR este lançamento?\n\nO estoque será estornado automaticamente (a quantidade baixada volta para o saldo).");
+            if (!confirmado) return;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "excluirRegistroSaida", linha: linha })
+                });
+                const resultado = await response.json();
+
+                if (resultado.success) {
+                    await abrirRegistros();
+                    await carregarHistoricoDoDia();
+                } else {
+                    alert("❌ Erro ao excluir: " + (resultado.error || "não foi possível excluir."));
+                }
+            } catch (err) {
+                alert("❌ Erro de conexão ao excluir o registro.");
+            }
+        }
+
         const modalEditar = document.getElementById('modal-editar');
         const editCodigo = document.getElementById('edit-codigo');
         const editCaixas = document.getElementById('edit-caixas');
+        const editCaixasLabel = document.getElementById('edit-caixas-label');
         const editObservacao = document.getElementById('edit-observacao');
         const editStatus = document.getElementById('edit-status');
+        const editModoCaixaBtn = document.getElementById('edit-modo-caixa-btn');
+        const editModoManualBtn = document.getElementById('edit-modo-manual-btn');
         let linhaEmEdicao = null;
+        let modoEdicaoAtual = 'caixa';
+
+        function selecionarModoEdicao(modo) {
+            modoEdicaoAtual = modo;
+            const ativo = "flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-emerald-500 bg-emerald-600 text-white transition";
+            const inativo = "flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-slate-700 bg-slate-800 text-slate-300 transition";
+
+            if (modo === 'manual') {
+                editModoManualBtn.className = "flex-1 px-3 py-2 rounded-lg text-xs font-bold border-2 border-indigo-500 bg-indigo-600 text-white transition";
+                editModoCaixaBtn.className = inativo;
+                editCaixasLabel.innerText = "Quantidade Total de Unidades (Manual)";
+            } else {
+                editModoCaixaBtn.className = ativo;
+                editModoManualBtn.className = inativo;
+                editCaixasLabel.innerText = "Qtd de Caixas";
+            }
+        }
 
         function abrirEdicao(reg) {
             linhaEmEdicao = reg.linha;
@@ -790,6 +845,7 @@
             editCaixas.value = reg.caixas;
             editObservacao.value = reg.observacao || "";
             editStatus.classList.add('hidden');
+            selecionarModoEdicao('caixa');
             modalEditar.classList.remove('hidden');
         }
 
@@ -802,7 +858,7 @@
             if (!linhaEmEdicao) return;
 
             const novoCodigo = editCodigo.value.trim();
-            const novasCaixas = parseInt(editCaixas.value) || 1;
+            const novaQuantidade = parseInt(editCaixas.value) || 1;
             const novaObservacao = editObservacao.value.trim();
 
             if (!novoCodigo) {
@@ -819,8 +875,10 @@
                     body: JSON.stringify({
                         action: "editarRegistroSaida",
                         linha: linhaEmEdicao,
+                        modo: modoEdicaoAtual,
                         novoCodigo: novoCodigo,
-                        novasCaixas: novasCaixas,
+                        novasCaixas: novaQuantidade,
+                        novaQuantidade: novaQuantidade,
                         novaObservacao: novaObservacao
                     })
                 });
