@@ -38,6 +38,10 @@
                 </button>
             </div>
 
+            <button onclick="abrirRelatorioMesa()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold px-3 py-2 rounded-lg transition flex items-center space-x-1 cursor-pointer">
+                <span>🖥️ Relatório por Mesa</span>
+            </button>
+
             <select id="filtro-periodo" onchange="carregarRelatorios()" class="bg-slate-800 border border-slate-700 text-xs font-mono text-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500">
                 <option value="hoje">Somente Hoje</option>
                 <option value="semana">Esta Semana (7 Dias)</option>
@@ -323,8 +327,87 @@
 
     </main>
 
+    <!-- MODAL: RELATÓRIO POR MESA (mesa + único dia) -->
+    <div id="modal-relatorio-mesa" class="hidden fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800">
+                <h3 class="text-lg font-bold text-slate-200 font-mono">🖥️ Relatório por Mesa</h3>
+                <button onclick="fecharRelatorioMesa()" class="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+            </div>
+
+            <div class="flex flex-wrap items-end gap-4 p-4 border-b border-slate-800 bg-slate-950/40">
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Mesa</label>
+                    <select id="rm-select-mesa" class="bg-slate-800 border border-slate-700 text-sm font-mono text-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 min-w-[180px]">
+                        <option value="">Carregando mesas...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Dia</label>
+                    <input type="date" id="rm-input-data" class="bg-slate-800 border border-slate-700 text-sm font-mono text-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500">
+                </div>
+                <button onclick="buscarRelatorioMesaSelecionada()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold px-4 py-2.5 rounded-lg transition">
+                    🔍 Buscar
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4">
+                <div id="rm-estado-vazio" class="text-center py-16 text-slate-500 text-xs font-mono uppercase">
+                    Selecione a mesa e o dia, depois clique em "Buscar".
+                </div>
+
+                <div id="rm-estado-carregando" class="hidden text-center py-16 text-slate-500 text-xs font-mono uppercase">
+                    Carregando relatório...
+                </div>
+
+                <div id="rm-resultado" class="hidden space-y-5">
+                    <!-- TOTAIS NO TOPO -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <div class="text-[10px] font-mono text-slate-400 uppercase">Total Produzido (Peças)</div>
+                            <div id="rm-total-pecas" class="text-3xl font-mono font-bold text-emerald-400 mt-1">0</div>
+                        </div>
+                        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <div class="text-[10px] font-mono text-slate-400 uppercase">Total de Caixas</div>
+                            <div id="rm-total-caixas" class="text-3xl font-mono font-bold text-amber-400 mt-1">0</div>
+                        </div>
+                        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                            <div class="text-[10px] font-mono text-slate-400 uppercase">Total de Operações</div>
+                            <div id="rm-total-operacoes" class="text-3xl font-mono font-bold text-sky-400 mt-1">0</div>
+                        </div>
+                    </div>
+
+                    <div class="text-xs font-mono text-slate-400" id="rm-cabecalho-selecao"></div>
+
+                    <!-- ITENS FEITOS PELA MESA NO DIA -->
+                    <div>
+                        <h4 class="text-sm font-bold font-mono text-slate-200 mb-2">Itens produzidos neste dia</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left font-mono text-xs">
+                                <thead>
+                                    <tr class="bg-slate-950 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                        <th class="p-2">Código</th>
+                                        <th class="p-2">Descrição</th>
+                                        <th class="p-2 text-center">Caixas</th>
+                                        <th class="p-2 text-center">Operações</th>
+                                        <th class="p-2 text-right text-emerald-400">Total (Un)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rm-tabela-itens" class="divide-y divide-slate-800/60"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="rm-estado-sem-dados" class="hidden text-center py-16 text-slate-500 text-xs font-mono uppercase">
+                    Nenhum lançamento encontrado para esta mesa neste dia.
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbzBR8C-HePGnAdhlSJpMF_22zwCr0Oxbm9rVtgMxWuBKF-0SCtPH7Z8InoSLLaNBBcEiA/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbzxZEf-I4g4uvKyTF5zWnu5hpyW7w5ch1EI_8vhCVRRr22Y7-E4ke-50m0c9hnrdviSdw/exec";
 
         let abaAtiva = 'mesas';
 
@@ -846,6 +929,138 @@
                     </table>
                     </div>
                 `;
+            }
+        }
+
+        // ==================== RELATÓRIO POR MESA (MESA + ÚNICO DIA) ====================
+        const modalRelatorioMesa = document.getElementById('modal-relatorio-mesa');
+        const rmSelectMesa = document.getElementById('rm-select-mesa');
+        const rmInputData = document.getElementById('rm-input-data');
+        const rmEstadoVazio = document.getElementById('rm-estado-vazio');
+        const rmEstadoCarregando = document.getElementById('rm-estado-carregando');
+        const rmEstadoSemDados = document.getElementById('rm-estado-sem-dados');
+        const rmResultado = document.getElementById('rm-resultado');
+
+        let mesasCarregadasRelatorio = false;
+
+        function hojeStrLocal() {
+            const hoje = new Date();
+            const ano = hoje.getFullYear();
+            const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+            const dia = String(hoje.getDate()).padStart(2, '0');
+            return `${ano}-${mes}-${dia}`;
+        }
+
+        async function abrirRelatorioMesa() {
+            modalRelatorioMesa.classList.remove('hidden');
+
+            if (!rmInputData.value) {
+                rmInputData.value = hojeStrLocal();
+            }
+
+            rmEstadoVazio.classList.remove('hidden');
+            rmEstadoCarregando.classList.add('hidden');
+            rmEstadoSemDados.classList.add('hidden');
+            rmResultado.classList.add('hidden');
+
+            if (!mesasCarregadasRelatorio) {
+                await carregarMesasParaRelatorio();
+            }
+        }
+
+        function fecharRelatorioMesa() {
+            modalRelatorioMesa.classList.add('hidden');
+        }
+
+        async function carregarMesasParaRelatorio() {
+            try {
+                const response = await fetch(`${API_URL}?action=buscarMesasDisponiveis&nocache=${Math.random()}`);
+                const dados = await response.json();
+                const mesas = dados.mesas || [];
+
+                rmSelectMesa.innerHTML = '';
+
+                if (mesas.length === 0) {
+                    rmSelectMesa.innerHTML = '<option value="">Nenhuma mesa encontrada</option>';
+                    return;
+                }
+
+                mesas.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.innerText = m;
+                    rmSelectMesa.appendChild(opt);
+                });
+
+                mesasCarregadasRelatorio = true;
+            } catch (err) {
+                rmSelectMesa.innerHTML = '<option value="">Erro ao carregar mesas</option>';
+            }
+        }
+
+        async function buscarRelatorioMesaSelecionada() {
+            const mesa = rmSelectMesa.value;
+            const data = rmInputData.value;
+
+            if (!mesa) {
+                alert("Selecione uma mesa.");
+                return;
+            }
+            if (!data) {
+                alert("Selecione um dia.");
+                return;
+            }
+
+            rmEstadoVazio.classList.add('hidden');
+            rmEstadoSemDados.classList.add('hidden');
+            rmResultado.classList.add('hidden');
+            rmEstadoCarregando.classList.remove('hidden');
+
+            try {
+                const url = `${API_URL}?action=buscarRelatorioPorMesa&mesa=${encodeURIComponent(mesa)}&data=${encodeURIComponent(data)}&nocache=${Math.random()}`;
+                const response = await fetch(url);
+                const res = await response.json();
+
+                rmEstadoCarregando.classList.add('hidden');
+
+                if (!res.success) {
+                    alert("Erro ao buscar o relatório: " + (res.error || ""));
+                    rmEstadoVazio.classList.remove('hidden');
+                    return;
+                }
+
+                if (!res.itens || res.itens.length === 0) {
+                    rmEstadoSemDados.classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('rm-total-pecas').innerText = (res.totalPecas || 0).toLocaleString('pt-BR');
+                document.getElementById('rm-total-caixas').innerText = (res.totalCaixas || 0).toLocaleString('pt-BR');
+                document.getElementById('rm-total-operacoes').innerText = (res.totalOperacoes || 0).toLocaleString('pt-BR');
+
+                const dataFormatada = new Date(data + 'T00:00:00').toLocaleDateString('pt-BR');
+                document.getElementById('rm-cabecalho-selecao').innerText = `Mesa: ${res.mesa} · Dia: ${dataFormatada}`;
+
+                const tbody = document.getElementById('rm-tabela-itens');
+                tbody.innerHTML = '';
+                res.itens.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-800/40";
+                    tr.innerHTML = `
+                        <td class="p-2 font-bold text-slate-300 whitespace-nowrap">${item.codigo}</td>
+                        <td class="p-2 text-slate-200 uppercase">${item.descricao}</td>
+                        <td class="p-2 text-center text-amber-400 font-bold">${item.caixas}</td>
+                        <td class="p-2 text-center text-slate-400">${item.operacoes}</td>
+                        <td class="p-2 text-right text-emerald-400 font-bold">${(item.totalItens || 0).toLocaleString('pt-BR')}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                rmResultado.classList.remove('hidden');
+            } catch (err) {
+                rmEstadoCarregando.classList.add('hidden');
+                alert("Erro de conexão ao buscar o relatório por mesa.");
+                rmEstadoVazio.classList.remove('hidden');
             }
         }
     </script>
