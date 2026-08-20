@@ -407,7 +407,7 @@
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbzxZEf-I4g4uvKyTF5zWnu5hpyW7w5ch1EI_8vhCVRRr22Y7-E4ke-50m0c9hnrdviSdw/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbyfHxpwyhUnDQfGCUsNJNsEVU74WCgGhyILAki9CmhcBeinl1dkLwxOUqiuooRzR54yJg/exec";
 
         let abaAtiva = 'mesas';
 
@@ -1034,32 +1034,35 @@
                     return;
                 }
 
+                // Renderizar resultados do relatório por mesa
                 document.getElementById('rm-total-pecas').innerText = (res.totalPecas || 0).toLocaleString('pt-BR');
                 document.getElementById('rm-total-caixas').innerText = (res.totalCaixas || 0).toLocaleString('pt-BR');
                 document.getElementById('rm-total-operacoes').innerText = (res.totalOperacoes || 0).toLocaleString('pt-BR');
 
-                const dataFormatada = new Date(data + 'T00:00:00').toLocaleDateString('pt-BR');
-                document.getElementById('rm-cabecalho-selecao').innerText = `Mesa: ${res.mesa} · Dia: ${dataFormatada}`;
+                const [ano, mes, dia] = res.data.split('-');
+                document.getElementById('rm-cabecalho-selecao').innerText = `Exibindo lançamentos de ${res.mesa} em ${dia}/${mes}/${ano}`;
 
                 const tbody = document.getElementById('rm-tabela-itens');
                 tbody.innerHTML = '';
+
                 res.itens.forEach(item => {
                     const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-800/40";
+                    tr.className = "hover:bg-slate-800/40 border-b border-slate-800/40";
                     tr.innerHTML = `
                         <td class="p-2 font-bold text-slate-300 whitespace-nowrap">${item.codigo}</td>
-                        <td class="p-2 text-slate-200 uppercase">${item.descricao}</td>
-                        <td class="p-2 text-center text-amber-400 font-bold">${item.caixas}</td>
-                        <td class="p-2 text-center text-slate-400">${item.operacoes}</td>
+                        <td class="p-2 text-slate-200 uppercase">${item.descricao || '-'}</td>
+                        <td class="p-2 text-center text-amber-400 font-bold">${item.caixas || 0}</td>
+                        <td class="p-2 text-center text-sky-400 font-bold">${item.operacoes || 0}</td>
                         <td class="p-2 text-right text-emerald-400 font-bold">${(item.totalItens || 0).toLocaleString('pt-BR')}</td>
                     `;
                     tbody.appendChild(tr);
                 });
 
                 rmResultado.classList.remove('hidden');
+
             } catch (err) {
                 rmEstadoCarregando.classList.add('hidden');
-                alert("Erro de conexão ao buscar o relatório por mesa.");
+                alert("Erro de conexão ao buscar relatório por mesa.");
                 rmEstadoVazio.classList.remove('hidden');
             }
         }
