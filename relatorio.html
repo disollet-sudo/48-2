@@ -36,6 +36,9 @@
                     📦 Estoque
                     <span id="badge-negativos" class="hidden absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-bold rounded-full h-4 w-4 flex items-center justify-center border-2 border-slate-950">0</span>
                 </button>
+                <button id="tab-btn-inconsistencias" onclick="trocarAba('inconsistencias')" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
+                    ⚠️ Inconsistências
+                </button>
             </div>
 
             <button onclick="abrirRelatorioMesa()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold px-3 py-2 rounded-lg transition flex items-center space-x-1 cursor-pointer">
@@ -325,6 +328,117 @@
 
         </div>
 
+        <!-- =================================================================== -->
+        <!-- ABA 4: INCONSISTÊNCIAS (DIAGNÓSTICO POR CÓDIGO)                     -->
+        <!-- =================================================================== -->
+        <div id="secao-inconsistencias" class="hidden space-y-6">
+
+            <section class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-md">
+                <h2 class="text-sm font-bold font-mono text-slate-200 mb-3">🔎 Diagnóstico por Código</h2>
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Código do item</label>
+                        <input type="text" id="inc-input-codigo" value="1403010004000" class="bg-slate-800 border border-slate-700 text-sm font-mono text-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-emerald-500 min-w-[220px]">
+                    </div>
+                    <button onclick="buscarInconsistencia()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold px-4 py-2.5 rounded-lg transition">
+                        🔍 Analisar
+                    </button>
+                </div>
+            </section>
+
+            <div id="inc-resultado" class="hidden space-y-6">
+                <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                        <div class="text-[10px] font-mono text-slate-400 uppercase">Saldo Atual (Estoque)</div>
+                        <div id="inc-saldo-atual" class="text-2xl font-mono font-bold text-indigo-400 mt-1">0</div>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                        <div class="text-[10px] font-mono text-slate-400 uppercase">Total Saída (Direta+Regra)</div>
+                        <div id="inc-total-saida" class="text-2xl font-mono font-bold text-red-400 mt-1">0</div>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                        <div class="text-[10px] font-mono text-slate-400 uppercase">Total Entrada (Tablet+CD)</div>
+                        <div id="inc-total-entrada" class="text-2xl font-mono font-bold text-emerald-400 mt-1">0</div>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                        <div class="text-[10px] font-mono text-slate-400 uppercase">Saldo Teórico</div>
+                        <div id="inc-saldo-teorico" class="text-2xl font-mono font-bold text-sky-400 mt-1">0</div>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                        <div class="text-[10px] font-mono text-slate-400 uppercase">Diferença p/ Estoque Real</div>
+                        <div id="inc-diferenca" class="text-2xl font-mono font-bold mt-1">0</div>
+                    </div>
+                </section>
+
+                <section id="inc-regras-box" class="bg-slate-900 p-5 rounded-2xl border border-slate-800 hidden">
+                    <h3 class="text-sm font-bold font-mono text-slate-200 mb-2">🧩 Onde esse código aparece em regras</h3>
+                    <div id="inc-regras-lista" class="text-xs font-mono text-slate-300 space-y-1"></div>
+                </section>
+
+                <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                        <h3 class="text-sm font-bold font-mono text-slate-200 mb-3">📤 Saídas via Regra (desmembramento)</h3>
+                        <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                            <table class="w-full text-left font-mono text-xs">
+                                <thead class="sticky top-0 bg-slate-900">
+                                    <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                        <th class="p-2">Data</th><th class="p-2">Mesa</th><th class="p-2">Origem Bipada</th><th class="p-2 text-right">Qtd</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inc-tabela-saidas-regra" class="divide-y divide-slate-800/60"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                        <h3 class="text-sm font-bold font-mono text-slate-200 mb-3">📤 Saídas Diretas (código bipado igual)</h3>
+                        <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                            <table class="w-full text-left font-mono text-xs">
+                                <thead class="sticky top-0 bg-slate-900">
+                                    <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                        <th class="p-2">Data</th><th class="p-2">Mesa</th><th class="p-2 text-right">Qtd</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inc-tabela-saidas-diretas" class="divide-y divide-slate-800/60"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                        <h3 class="text-sm font-bold font-mono text-slate-200 mb-3">📥 Entradas (Tablet)</h3>
+                        <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                            <table class="w-full text-left font-mono text-xs">
+                                <thead class="sticky top-0 bg-slate-900">
+                                    <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                        <th class="p-2">Data</th><th class="p-2 text-right">Qtd</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inc-tabela-entradas" class="divide-y divide-slate-800/60"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                        <h3 class="text-sm font-bold font-mono text-slate-200 mb-3">📥 Entradas (Devolução CD)</h3>
+                        <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                            <table class="w-full text-left font-mono text-xs">
+                                <thead class="sticky top-0 bg-slate-900">
+                                    <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                        <th class="p-2">Data</th><th class="p-2">Obs</th><th class="p-2 text-right">Qtd</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inc-tabela-entradas-cd" class="divide-y divide-slate-800/60"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div id="inc-sem-dados" class="hidden text-center py-16 text-slate-500 text-xs font-mono uppercase">
+                Nenhum registro encontrado para esse código.
+            </div>
+        </div>
+
     </main>
 
     <!-- MODAL: RELATÓRIO POR MESA (mesa + único dia) -->
@@ -407,7 +521,7 @@
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbyfHxpwyhUnDQfGCUsNJNsEVU74WCgGhyILAki9CmhcBeinl1dkLwxOUqiuooRzR54yJg/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbx3kGUjTr_Ipa665zHmfsK3hUCkDDYNqs6jlXpTUk7pmQTmFIR04oKE4ZuT0_2wGCHnAg/exec";
 
         let abaAtiva = 'mesas';
 
@@ -429,9 +543,11 @@
             const btnMesas = document.getElementById('tab-btn-mesas');
             const btnInjetoras = document.getElementById('tab-btn-injetoras');
             const btnEstoque = document.getElementById('tab-btn-estoque');
+            const btnInconsistencias = document.getElementById('tab-btn-inconsistencias');
             const secaoMesas = document.getElementById('secao-mesas');
             const secaoInjetoras = document.getElementById('secao-injetoras');
             const secaoEstoque = document.getElementById('secao-estoque');
+            const secaoInconsistencias = document.getElementById('secao-inconsistencias');
 
             const ativo = "px-3 py-1.5 rounded-lg bg-emerald-600 text-white transition cursor-pointer";
             const inativo = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer";
@@ -441,10 +557,12 @@
             btnMesas.className = novaAba === 'mesas' ? ativo : inativo;
             btnInjetoras.className = novaAba === 'injetoras' ? ativo : inativo;
             btnEstoque.className = novaAba === 'estoque' ? ativoRel : inativoRel;
+            btnInconsistencias.className = novaAba === 'inconsistencias' ? ativo : inativo;
 
             secaoMesas.classList.toggle('hidden', novaAba !== 'mesas');
             secaoInjetoras.classList.toggle('hidden', novaAba !== 'injetoras');
             secaoEstoque.classList.toggle('hidden', novaAba !== 'estoque');
+            secaoInconsistencias.classList.toggle('hidden', novaAba !== 'inconsistencias');
 
             if (novaAba === 'estoque') {
                 carregarPainelEstoque();
@@ -1064,6 +1182,90 @@
                 rmEstadoCarregando.classList.add('hidden');
                 alert("Erro de conexão ao buscar relatório por mesa.");
                 rmEstadoVazio.classList.remove('hidden');
+            }
+        }
+
+        // ==================== ABA INCONSISTÊNCIAS (DIAGNÓSTICO POR CÓDIGO) ====================
+        function formatarDataHoraInc(d) {
+            if (!d) return '-';
+            try { return new Date(d).toLocaleString('pt-BR'); } catch (e) { return '-'; }
+        }
+
+        async function buscarInconsistencia() {
+            const codigo = document.getElementById('inc-input-codigo').value.trim();
+            if (!codigo) { alert("Informe o código."); return; }
+
+            document.getElementById('inc-resultado').classList.add('hidden');
+            document.getElementById('inc-sem-dados').classList.add('hidden');
+
+            try {
+                const url = `${API_URL}?action=buscarInconsistenciaCodigo&codigo=${encodeURIComponent(codigo)}&nocache=${Math.random()}`;
+                const response = await fetch(url);
+                const res = await response.json();
+
+                if (!res.success) {
+                    alert("Erro: " + (res.error || "falha ao buscar."));
+                    return;
+                }
+
+                const t = res.totais;
+                document.getElementById('inc-saldo-atual').innerText = res.saldoAtualEstoque.toLocaleString('pt-BR');
+                document.getElementById('inc-total-saida').innerText = t.totalSaidaGeral.toLocaleString('pt-BR');
+                document.getElementById('inc-total-entrada').innerText = t.totalEntradaGeral.toLocaleString('pt-BR');
+                document.getElementById('inc-saldo-teorico').innerText = t.saldoTeorico.toLocaleString('pt-BR');
+
+                const difEl = document.getElementById('inc-diferenca');
+                difEl.innerText = t.diferencaParaEstoqueAtual.toLocaleString('pt-BR');
+                difEl.className = "text-2xl font-mono font-bold mt-1 " + (t.diferencaParaEstoqueAtual === 0 ? "text-emerald-400" : "text-red-400");
+
+                // Regras
+                const regrasBox = document.getElementById('inc-regras-box');
+                const regrasLista = document.getElementById('inc-regras-lista');
+                if (res.regrasEncontradas && res.regrasEncontradas.length > 0) {
+                    regrasBox.classList.remove('hidden');
+                    regrasLista.innerHTML = res.regrasEncontradas.map(rg =>
+                        `<div>• Regra <strong class="text-amber-400">${rg.codigoRegra}</strong> — ${rg.ondeAparece.join(', ')}</div>`
+                    ).join('');
+                } else {
+                    regrasBox.classList.add('hidden');
+                }
+
+                // Saídas via regra
+                const tbodySR = document.getElementById('inc-tabela-saidas-regra');
+                tbodySR.innerHTML = res.saidasViaRegra.length === 0
+                    ? '<tr><td colspan="4" class="p-3 text-center text-slate-500">Nenhuma</td></tr>'
+                    : res.saidasViaRegra.map(s => `
+                        <tr><td class="p-2">${formatarDataHoraInc(s.data)}</td><td class="p-2">${s.mesa}</td><td class="p-2">${s.codigoOrigemBipado}</td><td class="p-2 text-right text-red-400 font-bold">${s.quantidade}</td></tr>
+                    `).join('');
+
+                // Saídas diretas
+                const tbodySD = document.getElementById('inc-tabela-saidas-diretas');
+                tbodySD.innerHTML = res.saidasDiretas.length === 0
+                    ? '<tr><td colspan="3" class="p-3 text-center text-slate-500">Nenhuma</td></tr>'
+                    : res.saidasDiretas.map(s => `
+                        <tr><td class="p-2">${formatarDataHoraInc(s.data)}</td><td class="p-2">${s.mesa}</td><td class="p-2 text-right text-red-400 font-bold">${s.quantidade}</td></tr>
+                    `).join('');
+
+                // Entradas tablet
+                const tbodyE = document.getElementById('inc-tabela-entradas');
+                tbodyE.innerHTML = res.entradasDiretas.length === 0
+                    ? '<tr><td colspan="2" class="p-3 text-center text-slate-500">Nenhuma</td></tr>'
+                    : res.entradasDiretas.map(en => `
+                        <tr><td class="p-2">${formatarDataHoraInc(en.data)}</td><td class="p-2 text-right text-emerald-400 font-bold">${en.quantidade}</td></tr>
+                    `).join('');
+
+                // Entradas CD
+                const tbodyECD = document.getElementById('inc-tabela-entradas-cd');
+                tbodyECD.innerHTML = res.entradasCD.length === 0
+                    ? '<tr><td colspan="3" class="p-3 text-center text-slate-500">Nenhuma</td></tr>'
+                    : res.entradasCD.map(en => `
+                        <tr><td class="p-2">${formatarDataHoraInc(en.data)}</td><td class="p-2">${en.observacao || '-'}</td><td class="p-2 text-right text-emerald-400 font-bold">${en.quantidade}</td></tr>
+                    `).join('');
+
+                document.getElementById('inc-resultado').classList.remove('hidden');
+            } catch (err) {
+                alert("Erro de conexão ao buscar inconsistência.");
+                console.error(err);
             }
         }
     </script>
