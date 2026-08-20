@@ -370,37 +370,72 @@
                     </div>
                 </section>
 
-                <section id="inc-regras-box" class="bg-slate-900 p-5 rounded-2xl border border-slate-800 hidden">
-                    <h3 class="text-sm font-bold font-mono text-slate-200 mb-2">🧩 Onde esse código aparece em regras</h3>
-                    <div id="inc-regras-lista" class="text-xs font-mono text-slate-300 space-y-1"></div>
-                </section>
-
-                <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
-                        <h3 class="text-sm font-bold font-mono text-slate-200 mb-3">📤 Saídas via Regra (desmembramento)</h3>
-                        <div class="overflow-x-auto max-h-80 overflow-y-auto">
-                            <table class="w-full text-left font-mono text-xs">
-                                <thead class="sticky top-0 bg-slate-900">
-                                    <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
-                                        <th class="p-2">Data</th><th class="p-2">Mesa</th><th class="p-2">Origem Bipada</th><th class="p-2 text-right">Qtd</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inc-tabela-saidas-regra" class="divide-y divide-slate-800/60"></tbody>
-                            </table>
+                <!-- SAÍDAS VIA REGRA - SEÇÃO GRANDE, COM FILTRO DE DATA -->
+                <section class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                    <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+                        <h3 class="text-sm font-bold font-mono text-slate-200">📤 Saídas via Regra (desmembramento)</h3>
+                        <div class="flex flex-wrap items-end gap-2">
+                            <div>
+                                <label class="block text-[9px] font-mono text-slate-500 uppercase mb-1">De</label>
+                                <input type="date" id="inc-filtro-data-inicio" class="bg-slate-800 border border-slate-700 text-xs font-mono text-slate-200 rounded-lg p-2 focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-mono text-slate-500 uppercase mb-1">Até</label>
+                                <input type="date" id="inc-filtro-data-fim" class="bg-slate-800 border border-slate-700 text-xs font-mono text-slate-200 rounded-lg p-2 focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <button onclick="aplicarFiltroDataViaRegra()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold px-3 py-2 rounded-lg transition">
+                                Filtrar
+                            </button>
+                            <button onclick="limparFiltroDataViaRegra()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs font-bold px-3 py-2 rounded-lg transition">
+                                Limpar
+                            </button>
                         </div>
                     </div>
-                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
-                        <h3 class="text-sm font-bold font-mono text-slate-200 mb-3">📤 Saídas Diretas (código bipado igual)</h3>
-                        <div class="overflow-x-auto max-h-80 overflow-y-auto">
-                            <table class="w-full text-left font-mono text-xs">
-                                <thead class="sticky top-0 bg-slate-900">
-                                    <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
-                                        <th class="p-2">Data</th><th class="p-2">Mesa</th><th class="p-2 text-right">Qtd</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inc-tabela-saidas-diretas" class="divide-y divide-slate-800/60"></tbody>
-                            </table>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                            <div class="text-[10px] font-mono text-slate-500 uppercase">Registros no filtro</div>
+                            <div id="inc-vr-total-registros" class="text-xl font-mono font-bold text-slate-200 mt-1">0</div>
                         </div>
+                        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                            <div class="text-[10px] font-mono text-slate-500 uppercase">Total de Caixas</div>
+                            <div id="inc-vr-total-caixas" class="text-xl font-mono font-bold text-amber-400 mt-1">0</div>
+                        </div>
+                        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 col-span-2 sm:col-span-1">
+                            <div class="text-[10px] font-mono text-slate-500 uppercase">Total de Peças (deste código)</div>
+                            <div id="inc-vr-total-pecas" class="text-xl font-mono font-bold text-red-400 mt-1">0</div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto max-h-[520px] overflow-y-auto rounded-lg border border-slate-800">
+                        <table class="w-full text-left font-mono text-xs">
+                            <thead class="sticky top-0 bg-slate-950 z-10">
+                                <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                    <th class="p-3">Data</th>
+                                    <th class="p-3">Mesa</th>
+                                    <th class="p-3">Item Bipado</th>
+                                    <th class="p-3 text-center">Caixas</th>
+                                    <th class="p-3 text-right">Total Itens (Saída Geral)</th>
+                                    <th class="p-3 text-right text-red-400">Qtd deste Código</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inc-tabela-saidas-regra" class="divide-y divide-slate-800/60"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- SAÍDAS DIRETAS -->
+                <section class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                    <h3 class="text-sm font-bold font-mono text-slate-200 mb-3">📤 Saídas Diretas (código bipado igual)</h3>
+                    <div class="overflow-x-auto max-h-60 overflow-y-auto">
+                        <table class="w-full text-left font-mono text-xs">
+                            <thead class="sticky top-0 bg-slate-900">
+                                <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                    <th class="p-2">Data</th><th class="p-2">Mesa</th><th class="p-2 text-right">Qtd</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inc-tabela-saidas-diretas" class="divide-y divide-slate-800/60"></tbody>
+                        </table>
                     </div>
                 </section>
 
@@ -521,7 +556,7 @@
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbx3kGUjTr_Ipa665zHmfsK3hUCkDDYNqs6jlXpTUk7pmQTmFIR04oKE4ZuT0_2wGCHnAg/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbzNLW3gY6xFul0b_nANTChQSX-4poMtT26d0Qv09pJdGJoWq8sABa4BJNjv3kjtOyPzkA/exec";
 
         let abaAtiva = 'mesas';
 
@@ -1191,6 +1226,68 @@
             try { return new Date(d).toLocaleString('pt-BR'); } catch (e) { return '-'; }
         }
 
+        // Guarda a lista completa de "saídas via regra" retornada pela API, para
+        // permitir filtrar por data no cliente sem precisar refazer a consulta.
+        let INC_SAIDAS_VIA_REGRA_RAW = [];
+
+        function dataParaYMD(d) {
+            const dt = new Date(d);
+            const ano = dt.getFullYear();
+            const mes = String(dt.getMonth() + 1).padStart(2, '0');
+            const dia = String(dt.getDate()).padStart(2, '0');
+            return `${ano}-${mes}-${dia}`;
+        }
+
+        function aplicarFiltroDataViaRegra() {
+            renderizarTabelaSaidasViaRegra();
+        }
+
+        function limparFiltroDataViaRegra() {
+            document.getElementById('inc-filtro-data-inicio').value = '';
+            document.getElementById('inc-filtro-data-fim').value = '';
+            renderizarTabelaSaidasViaRegra();
+        }
+
+        function renderizarTabelaSaidasViaRegra() {
+            const dataInicio = document.getElementById('inc-filtro-data-inicio').value;
+            const dataFim = document.getElementById('inc-filtro-data-fim').value;
+
+            let lista = INC_SAIDAS_VIA_REGRA_RAW;
+
+            if (dataInicio || dataFim) {
+                lista = lista.filter(s => {
+                    const ymd = dataParaYMD(s.data);
+                    if (dataInicio && ymd < dataInicio) return false;
+                    if (dataFim && ymd > dataFim) return false;
+                    return true;
+                });
+            }
+
+            // Ordena do mais recente para o mais antigo
+            lista = lista.slice().sort((a, b) => new Date(b.data) - new Date(a.data));
+
+            const tbody = document.getElementById('inc-tabela-saidas-regra');
+            tbody.innerHTML = lista.length === 0
+                ? '<tr><td colspan="6" class="p-4 text-center text-slate-500">Nenhum registro encontrado no período.</td></tr>'
+                : lista.map(s => `
+                    <tr class="hover:bg-slate-800/40">
+                        <td class="p-2 whitespace-nowrap">${formatarDataHoraInc(s.data)}</td>
+                        <td class="p-2 font-bold text-slate-300 whitespace-nowrap">${s.mesa}</td>
+                        <td class="p-2 text-slate-300 whitespace-nowrap">${s.codigoOrigemBipado}</td>
+                        <td class="p-2 text-center text-amber-400 font-bold">${s.caixas || 0}</td>
+                        <td class="p-2 text-right text-slate-300">${(s.totalItens || 0).toLocaleString('pt-BR')}</td>
+                        <td class="p-2 text-right text-red-400 font-bold">${s.quantidade}</td>
+                    </tr>
+                `).join('');
+
+            const totalCaixas = lista.reduce((acc, s) => acc + (s.caixas || 0), 0);
+            const totalPecas = lista.reduce((acc, s) => acc + (s.quantidade || 0), 0);
+
+            document.getElementById('inc-vr-total-registros').innerText = lista.length.toLocaleString('pt-BR');
+            document.getElementById('inc-vr-total-caixas').innerText = totalCaixas.toLocaleString('pt-BR');
+            document.getElementById('inc-vr-total-pecas').innerText = totalPecas.toLocaleString('pt-BR');
+        }
+
         async function buscarInconsistencia() {
             const codigo = document.getElementById('inc-input-codigo').value.trim();
             if (!codigo) { alert("Informe o código."); return; }
@@ -1218,25 +1315,11 @@
                 difEl.innerText = t.diferencaParaEstoqueAtual.toLocaleString('pt-BR');
                 difEl.className = "text-2xl font-mono font-bold mt-1 " + (t.diferencaParaEstoqueAtual === 0 ? "text-emerald-400" : "text-red-400");
 
-                // Regras
-                const regrasBox = document.getElementById('inc-regras-box');
-                const regrasLista = document.getElementById('inc-regras-lista');
-                if (res.regrasEncontradas && res.regrasEncontradas.length > 0) {
-                    regrasBox.classList.remove('hidden');
-                    regrasLista.innerHTML = res.regrasEncontradas.map(rg =>
-                        `<div>• Regra <strong class="text-amber-400">${rg.codigoRegra}</strong> — ${rg.ondeAparece.join(', ')}</div>`
-                    ).join('');
-                } else {
-                    regrasBox.classList.add('hidden');
-                }
-
-                // Saídas via regra
-                const tbodySR = document.getElementById('inc-tabela-saidas-regra');
-                tbodySR.innerHTML = res.saidasViaRegra.length === 0
-                    ? '<tr><td colspan="4" class="p-3 text-center text-slate-500">Nenhuma</td></tr>'
-                    : res.saidasViaRegra.map(s => `
-                        <tr><td class="p-2">${formatarDataHoraInc(s.data)}</td><td class="p-2">${s.mesa}</td><td class="p-2">${s.codigoOrigemBipado}</td><td class="p-2 text-right text-red-400 font-bold">${s.quantidade}</td></tr>
-                    `).join('');
+                // Saídas via regra: guarda os dados completos e (re)aplica o filtro de data atual
+                INC_SAIDAS_VIA_REGRA_RAW = res.saidasViaRegra || [];
+                document.getElementById('inc-filtro-data-inicio').value = '';
+                document.getElementById('inc-filtro-data-fim').value = '';
+                renderizarTabelaSaidasViaRegra();
 
                 // Saídas diretas
                 const tbodySD = document.getElementById('inc-tabela-saidas-diretas');
