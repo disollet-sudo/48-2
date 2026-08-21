@@ -41,6 +41,10 @@
                 </button>
             </div>
 
+            <button onclick="abrirModalManutencao()" class="bg-amber-600 hover:bg-amber-500 text-white font-mono text-xs font-bold px-3 py-2 rounded-lg transition flex items-center space-x-1 cursor-pointer">
+                <span>🔧 Manutenção</span>
+            </button>
+
             <button onclick="abrirRelatorioMesa()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold px-3 py-2 rounded-lg transition flex items-center space-x-1 cursor-pointer">
                 <span>🖥️ Relatório por Mesa</span>
             </button>
@@ -343,6 +347,9 @@
                     <button onclick="buscarInconsistencia()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold px-4 py-2.5 rounded-lg transition">
                         🔍 Analisar
                     </button>
+                    <button onclick="abrirModalManutencaoComCodigo()" class="bg-amber-600 hover:bg-amber-500 text-white font-mono text-xs font-bold px-4 py-2.5 rounded-lg transition">
+                        🔧 Fazer Manutenção deste Código
+                    </button>
                 </div>
             </section>
 
@@ -367,6 +374,32 @@
                     <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
                         <div class="text-[10px] font-mono text-slate-400 uppercase">Diferença p/ Estoque Real</div>
                         <div id="inc-diferenca" class="text-2xl font-mono font-bold mt-1">0</div>
+                    </div>
+                </section>
+
+                <!-- BANNER: INDICA QUE O CÁLCULO ESTÁ USANDO UMA MANUTENÇÃO COMO BASE -->
+                <div id="inc-banner-manutencao" class="hidden bg-amber-950/30 border border-amber-800/50 rounded-xl p-3 text-xs font-mono text-amber-300 leading-relaxed"></div>
+
+                <!-- HISTÓRICO DE MANUTENÇÕES MANUAIS -->
+                <section class="bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-sm font-bold font-mono text-slate-200">🔧 Histórico de Manutenções Manuais</h3>
+                        <button onclick="abrirModalManutencaoComCodigo()" class="bg-amber-600 hover:bg-amber-500 text-white font-mono text-[10px] font-bold px-3 py-1.5 rounded-lg transition">
+                            + Nova Manutenção
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto max-h-60 overflow-y-auto">
+                        <table class="w-full text-left font-mono text-xs">
+                            <thead class="sticky top-0 bg-slate-900">
+                                <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                    <th class="p-2">Data</th>
+                                    <th class="p-2 text-right">Ajuste (Antes → Depois)</th>
+                                    <th class="p-2 text-right">Diferença</th>
+                                    <th class="p-2">Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inc-tabela-manutencoes" class="divide-y divide-slate-800/60"></tbody>
+                        </table>
                     </div>
                 </section>
 
@@ -555,8 +588,81 @@
         </div>
     </div>
 
+    <!-- MODAL: MANUTENÇÃO DE ESTOQUE -->
+    <div id="modal-manutencao" class="hidden fixed inset-0 bg-black/70 z-[80] flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center p-4 border-b border-slate-800">
+                <h3 class="text-lg font-bold text-slate-200 font-mono">🔧 Manutenção de Estoque</h3>
+                <button onclick="fecharModalManutencao()" class="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+            </div>
+
+            <div class="p-4 border-b border-slate-800 bg-slate-950/40 flex flex-wrap items-end gap-3">
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Código do item</label>
+                    <input type="text" id="man-input-codigo" onkeydown="if(event.key==='Enter'){event.preventDefault(); buscarItemManutencao();}" class="w-full bg-slate-800 border border-slate-700 text-sm font-mono text-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-amber-500">
+                </div>
+                <button onclick="buscarItemManutencao()" class="bg-amber-600 hover:bg-amber-500 text-white font-mono text-xs font-bold px-4 py-2.5 rounded-lg transition">
+                    🔍 Buscar
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4">
+                <div id="man-sem-resultado" class="text-center py-12 text-slate-500 text-xs font-mono uppercase">
+                    Informe o código do item e clique em Buscar.
+                </div>
+
+                <div id="man-resultado" class="hidden space-y-5">
+                    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                        <div class="flex justify-between items-start gap-2">
+                            <div>
+                                <span id="man-codigo-exibido" class="text-[11px] font-mono bg-slate-950 border border-slate-700 text-slate-300 px-2 py-0.5 rounded"></span>
+                                <h4 id="man-descricao-exibida" class="font-bold text-slate-100 text-sm mt-1 uppercase"></h4>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-[10px] font-mono text-slate-400 uppercase">Estoque atual</div>
+                                <div id="man-estoque-atual" class="text-2xl font-mono font-bold text-indigo-400">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Novo valor de estoque</label>
+                            <input type="number" id="man-input-novo-estoque" class="w-full bg-slate-800 border border-slate-700 text-sm font-mono text-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Motivo da manutenção</label>
+                            <input type="text" id="man-input-motivo" placeholder="Ex: Contagem física, correção de erro..." class="w-full bg-slate-800 border border-slate-700 text-sm font-mono text-slate-200 rounded-lg p-2.5 focus:outline-none focus:border-amber-500">
+                        </div>
+                    </div>
+
+                    <button onclick="salvarManutencaoEstoque()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-sm font-bold px-4 py-3 rounded-lg transition">
+                        💾 Salvar Ajuste de Estoque
+                    </button>
+
+                    <div>
+                        <h4 class="text-xs font-bold font-mono text-slate-300 uppercase mb-2">Histórico de manutenções deste código</h4>
+                        <div class="overflow-x-auto max-h-48 overflow-y-auto rounded-lg border border-slate-800">
+                            <table class="w-full text-left font-mono text-xs">
+                                <thead class="sticky top-0 bg-slate-950">
+                                    <tr class="text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                        <th class="p-2">Data</th>
+                                        <th class="p-2 text-right">Ajuste</th>
+                                        <th class="p-2 text-right">Diferença</th>
+                                        <th class="p-2">Motivo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="man-tabela-historico" class="divide-y divide-slate-800/60"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbzNLW3gY6xFul0b_nANTChQSX-4poMtT26d0Qv09pJdGJoWq8sABa4BJNjv3kjtOyPzkA/exec";
+        const API_URL = "https://script.google.com/macros/s/AKfycbyfblNdoGU-mDSUrhloOMwopGnyp7eVUYfOvIIHIsrTsL30-LOxriLTCWKcfJWaS4I2Dg/exec";
 
         let abaAtiva = 'mesas';
 
@@ -1005,7 +1111,10 @@
                                 <span class="text-[11px] font-mono bg-slate-950 border border-red-900/50 text-red-300 px-2 py-0.5 rounded">${item.codigo}</span>
                                 <h4 class="font-bold text-slate-100 text-sm mt-1 uppercase">${item.descricao || 'Item sem descrição'}</h4>
                             </div>
-                            <span class="text-2xl font-mono font-bold text-red-400 whitespace-nowrap">${item.quantidade}</span>
+                            <div class="flex flex-col items-end gap-1">
+                                <span class="text-2xl font-mono font-bold text-red-400 whitespace-nowrap">${item.quantidade}</span>
+                                <button onclick="abrirModalManutencaoComCodigo('${item.codigo}')" class="text-[10px] bg-amber-600 hover:bg-amber-500 text-white font-mono font-bold px-2 py-1 rounded transition">🔧 Corrigir</button>
+                            </div>
                         </div>
                         <p class="text-xs text-slate-300 mt-2 leading-snug"><strong class="text-red-300">Possível causa:</strong> ${item.diagnostico}</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-[11px] font-mono text-slate-400">
@@ -1220,6 +1329,126 @@
             }
         }
 
+        // ==================== MODAL: MANUTENÇÃO DE ESTOQUE ====================
+        const modalManutencao = document.getElementById('modal-manutencao');
+        const manInputCodigo = document.getElementById('man-input-codigo');
+        const manResultado = document.getElementById('man-resultado');
+        const manSemResultado = document.getElementById('man-sem-resultado');
+        const manInputNovoEstoque = document.getElementById('man-input-novo-estoque');
+        const manInputMotivo = document.getElementById('man-input-motivo');
+
+        let manCodigoAtual = '';
+
+        function abrirModalManutencao() {
+            modalManutencao.classList.remove('hidden');
+            manResultado.classList.add('hidden');
+            manSemResultado.classList.remove('hidden');
+            manInputCodigo.value = '';
+            manCodigoAtual = '';
+            setTimeout(() => manInputCodigo.focus(), 50);
+        }
+
+        // Abre o modal já com o código atual da aba de Inconsistências (usado nos
+        // botões "Fazer Manutenção deste Código" e "🔧 Corrigir" dos alertas negativos)
+        function abrirModalManutencaoComCodigo(codigoForcado) {
+            const codigo = codigoForcado || document.getElementById('inc-input-codigo').value.trim();
+            modalManutencao.classList.remove('hidden');
+            manResultado.classList.add('hidden');
+            manSemResultado.classList.remove('hidden');
+            manInputCodigo.value = codigo;
+            if (codigo) {
+                buscarItemManutencao();
+            } else {
+                manInputCodigo.focus();
+            }
+        }
+
+        function fecharModalManutencao() {
+            modalManutencao.classList.add('hidden');
+        }
+
+        async function buscarItemManutencao() {
+            const codigo = manInputCodigo.value.trim();
+            if (!codigo) { alert("Informe o código do item."); return; }
+
+            try {
+                const url = `${API_URL}?action=buscarItemEstoque&codigo=${encodeURIComponent(codigo)}&nocache=${Math.random()}`;
+                const response = await fetch(url);
+                const res = await response.json();
+
+                if (!res.success) {
+                    alert("Erro ao buscar item: " + (res.error || ""));
+                    return;
+                }
+
+                manCodigoAtual = res.codigo;
+
+                document.getElementById('man-codigo-exibido').innerText = res.codigo;
+                document.getElementById('man-descricao-exibida').innerText = res.descricao;
+                document.getElementById('man-estoque-atual').innerText = (res.quantidade || 0).toLocaleString('pt-BR');
+                manInputNovoEstoque.value = res.quantidade || 0;
+                manInputMotivo.value = '';
+
+                const tbodyHist = document.getElementById('man-tabela-historico');
+                const hist = res.ultimasManutencoes || [];
+                tbodyHist.innerHTML = hist.length === 0
+                    ? '<tr><td colspan="4" class="p-3 text-center text-slate-500">Nenhuma manutenção anterior registrada para este código.</td></tr>'
+                    : hist.map(h => `
+                        <tr>
+                            <td class="p-2 whitespace-nowrap">${formatarDataHora(h.dataHora)}</td>
+                            <td class="p-2 text-right">${h.estoqueAnterior} → ${h.estoqueNovo}</td>
+                            <td class="p-2 text-right ${h.diferenca >= 0 ? 'text-emerald-400' : 'text-red-400'} font-bold">${h.diferenca > 0 ? '+' : ''}${h.diferenca}</td>
+                            <td class="p-2 text-slate-300">${h.motivo || '-'}</td>
+                        </tr>
+                    `).join('');
+
+                manSemResultado.classList.add('hidden');
+                manResultado.classList.remove('hidden');
+            } catch (err) {
+                alert("Erro de conexão ao buscar item.");
+                console.error(err);
+            }
+        }
+
+        async function salvarManutencaoEstoque() {
+            const novoEstoque = manInputNovoEstoque.value;
+            const motivo = manInputMotivo.value.trim();
+
+            if (!manCodigoAtual) { alert("Busque um item primeiro."); return; }
+            if (novoEstoque === '' || isNaN(Number(novoEstoque))) { alert("Informe um valor válido de estoque."); return; }
+            if (!motivo) { alert("Informe o motivo da manutenção. Ele fica salvo no histórico para consulta futura."); return; }
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'registrarManutencaoEstoque',
+                        dados: { codigo: manCodigoAtual, novoEstoque: Number(novoEstoque), motivo: motivo }
+                    })
+                });
+                const res = await response.json();
+
+                if (!(res.sucesso || res.success)) {
+                    alert("Erro ao salvar: " + (res.mensagem || res.error || ""));
+                    return;
+                }
+
+                alert("Estoque atualizado com sucesso!");
+                fecharModalManutencao();
+                carregarPainelEstoque(true);
+                carregarRelatorios();
+
+                // Se a aba de Inconsistências já estiver mostrando este código, atualiza na hora
+                const codigoIncAtual = document.getElementById('inc-input-codigo').value.trim();
+                if (codigoIncAtual === manCodigoAtual) {
+                    buscarInconsistencia();
+                }
+            } catch (err) {
+                alert("Erro de conexão ao salvar manutenção.");
+                console.error(err);
+            }
+        }
+
         // ==================== ABA INCONSISTÊNCIAS (DIAGNÓSTICO POR CÓDIGO) ====================
         function formatarDataHoraInc(d) {
             if (!d) return '-';
@@ -1314,6 +1543,30 @@
                 const difEl = document.getElementById('inc-diferenca');
                 difEl.innerText = t.diferencaParaEstoqueAtual.toLocaleString('pt-BR');
                 difEl.className = "text-2xl font-mono font-bold mt-1 " + (t.diferencaParaEstoqueAtual === 0 ? "text-emerald-400" : "text-red-400");
+
+                // Banner + histórico de manutenções manuais: mostra se o cálculo do
+                // saldo teórico está partindo de um ajuste manual feito na tela de
+                // Manutenção, e a partir de quando.
+                const bannerMan = document.getElementById('inc-banner-manutencao');
+                if (res.ultimaManutencao) {
+                    bannerMan.classList.remove('hidden');
+                    bannerMan.innerHTML = `⚙️ O <strong>Saldo Teórico</strong> acima está sendo calculado a partir da manutenção manual de <strong>${formatarDataHoraInc(res.ultimaManutencao.dataHora)}</strong> (estoque definido para <strong>${res.ultimaManutencao.estoqueNovo}</strong>), somando apenas entradas/saídas registradas depois desse ajuste. Saldo teórico considerando todo o histórico desde o início: <strong>${(t.saldoTeoricoHistoricoCompleto || 0).toLocaleString('pt-BR')}</strong>.`;
+                } else {
+                    bannerMan.classList.add('hidden');
+                }
+
+                const manutencoes = res.manutencoes || [];
+                const tbodyMan = document.getElementById('inc-tabela-manutencoes');
+                tbodyMan.innerHTML = manutencoes.length === 0
+                    ? '<tr><td colspan="4" class="p-3 text-center text-slate-500">Nenhuma manutenção manual registrada para este código ainda.</td></tr>'
+                    : manutencoes.map(m => `
+                        <tr class="hover:bg-slate-800/40">
+                            <td class="p-2 whitespace-nowrap">${formatarDataHoraInc(m.dataHora)}</td>
+                            <td class="p-2 text-right">${m.estoqueAnterior} → ${m.estoqueNovo}</td>
+                            <td class="p-2 text-right ${m.diferenca >= 0 ? 'text-emerald-400' : 'text-red-400'} font-bold">${m.diferenca > 0 ? '+' : ''}${m.diferenca}</td>
+                            <td class="p-2 text-slate-300">${m.motivo || '-'}</td>
+                        </tr>
+                    `).join('');
 
                 // Saídas via regra: guarda os dados completos e (re)aplica o filtro de data atual
                 INC_SAIDAS_VIA_REGRA_RAW = res.saidasViaRegra || [];
